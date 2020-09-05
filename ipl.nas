@@ -1,4 +1,4 @@
-; hello-os
+; haribote-ipl
 ; TAB=4
 
 		ORG		0x7c00			; このプログラムがどこに読み込まれるのか
@@ -7,7 +7,7 @@
 
 		JMP		entry
 		DB		0x90
-		DB		"HELLOIPL"		; ブートセクタの名前を自由に書いてよい（8バイト）
+		DB		"HARIBOTE"		; ブートセクタの名前を自由に書いてよい（8バイト）
 		DW		512				; 1セクタの大きさ（512にしなければいけない）
 		DB		1				; クラスタの大きさ（1セクタにしなければいけない）
 		DW		1				; FATがどこから始まるか（普通は1セクタ目からにする）
@@ -22,7 +22,7 @@
 		DD		2880			; このドライブ大きさをもう一度書く
 		DB		0,0,0x29		; よくわからないけどこの値にしておくといいらしい
 		DD		0xffffffff		; たぶんボリュームシリアル番号
-		DB		"HELLO-OS   "	; ディスクの名前（11バイト）
+		DB		"HARIBOTE-OS"	; ディスクの名前（11バイト）
 		DB		"FAT12   "		; フォーマットの名前（8バイト）
 		TIMES	18	DB	0		; とりあえず18バイトあけておく
 
@@ -42,12 +42,21 @@ entry:
 		MOV		DH,0			; ヘッド0
 		MOV		CL,2			; セクタ2
 
+		MOV		SI,0			; 失敗回数を数えるレジスタ
+retry:
 		MOV		AH,0x02			; AH=0x02 : ディスク読み込み
 		MOV		AL,1			; 1セクタ
 		MOV		BX,0
 		MOV		DL,0x00			; Aドライブ
 		INT		0x13			; ディスクBIOS呼び出し
-		JC		error
+		JNC		fin				; エラーがおきなければfinへ
+		ADD		SI,1			; SIに1を足す
+		CMP		SI,5			; SIと5を比較
+		JAE		error			; SI >= 5 だったらerrorへ
+		MOV		AH,0x00
+		MOV		DL,0x00			; Aドライブ
+		INT		0x13			; ドライブのリセット
+		JMP		retry
 
 ; 読み終わったけどとりあえずやることないので寝る
 
@@ -56,7 +65,7 @@ fin:
 		JMP		fin				; 無限ループ
 
 error:
-        MOV     SI,msg
+		MOV		SI,msg
 putloop:
 		MOV		AL,[SI]
 		ADD		SI,1			; SIに1を足す
@@ -68,8 +77,7 @@ putloop:
 		JMP		putloop
 msg:
 		DB		0x0a, 0x0a		; 改行を2つ
-		;DB		"hello, world"
-		DB		"How are you?"
+		DB		"load error"
 		DB		0x0a			; 改行
 		DB		0
 
