@@ -1,11 +1,12 @@
 image_file = woodyOS.img
+ipl_file = ipl10
 
 haribote.sys: haribote.nas
 	nasm haribote.nas -o haribote.sys
-ipl.bin: ipl.nas
-	nasm ipl.nas -o ipl.bin -l ipl.lst
-${image_file}: haribote.sys ipl.bin
-	mformat -f 1440 -B ipl.bin -C -i woodyOS.img ::
+${ipl_file}.bin: ${ipl_file}.nas
+	nasm ${ipl_file}.nas -o ${ipl_file}.bin -l ${ipl_file}.lst
+${image_file}: haribote.sys ${ipl_file}.bin
+	mformat -f 1440 -B ${ipl_file}.bin -C -i woodyOS.img ::
 	mcopy haribote.sys -i woodyOS.img ::
 
 img: ${image_file}
