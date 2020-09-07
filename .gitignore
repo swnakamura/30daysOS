@@ -1,2 +1,4 @@
 *.bin
 *.lst
+*.img
+*.sys
