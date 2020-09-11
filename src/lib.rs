@@ -6,9 +6,11 @@ use core::panic::PanicInfo;
 
 fn hlt() {
     unsafe {
-        asm!("hlt");
+        asm!("HLT");
     }
 }
+mod io_func;
+mod vga;
 
 fn show_white(i: u32) {
     // 白色なので15
@@ -27,6 +29,7 @@ fn show_color(i: u32) {
 #[start]
 pub extern "C" fn haribote_os() -> ! {
     // 本にある通り、0xa0000から0xaffffまで描画
+    vga::init_palette();
     for i in 0xa0000..0xaffff {
         show_color(i);
     }
