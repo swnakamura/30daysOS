@@ -12,19 +12,6 @@ fn hlt() {
 mod io_func;
 mod vga;
 
-fn show_white(i: u32) {
-    // 白色なので15
-    let a: u8 = 15;
-    // 生ポインタを使って、15を代入
-    let ptr = unsafe { &mut *(i as *mut u8) };
-    *ptr = a
-}
-
-fn show_color(i: u32) {
-    let ptr = unsafe { &mut *(i as *mut u32) };
-    *ptr = i & 0x0f;
-}
-
 #[no_mangle]
 #[start]
 pub extern "C" fn haribote_os() -> ! {
