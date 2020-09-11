@@ -26,9 +26,15 @@ pub extern "C" fn haribote_os() -> ! {
 
 fn draw_haribote_desktop() {
     use vga::Color::*;
-    let vram_pointer = 0xa0000 as *mut u8;
-    let xsize = 320;
-    let ysize = 200;
+    let (xsize, ysize, vram_pointer);
+    unsafe {
+        let binfo_screenx = 0x0ff4 as *const u16;
+        let binfo_screeny = 0x0ff6 as *const u16;
+        let binfo_vram = 0x0ff8 as *const *mut u8;
+        xsize = *binfo_screenx;
+        ysize = *binfo_screeny;
+        vram_pointer = *binfo_vram;
+    }
 
     let boxes_to_draw = [
         (DarkCyan, 0, 0, xsize - 1, ysize - 29),

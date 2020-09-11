@@ -66,12 +66,12 @@ fn set_palette(start: u32, end: u32, rgb: [[u32; 3]; 16]) {
 /// 教科書ではcharポインタを使っているので、色の代入はu8のサイズとわかり、なのでu8が使われていることに注目
 pub fn boxfill8(
     vga_pointer: *mut u8,
-    xsize: u32,
+    xsize: u16,
     color: Color,
-    x0: u32,
-    y0: u32,
-    x1: u32,
-    y1: u32,
+    x0: u16,
+    y0: u16,
+    x1: u16,
+    y1: u16,
 ) {
     for y in y0..=y1 {
         for x in x0..=x1 {
