@@ -1,9 +1,10 @@
+#![allow(dead_code)]
 pub fn cli() {
     unsafe {
         asm!("CLI");
     }
 }
-pub fn sti(eflags: u32) {
+pub fn sti() {
     unsafe {
         asm!("STI");
     }

@@ -1,6 +1,6 @@
 use crate::io_func;
 
-const basic_rgb_table: [[u32; 3]; 16] = [
+const BASIC_RGB_TABLE: [[u32; 3]; 16] = [
     [0x00, 0x00, 0x00], // 0:黒
     [0xff, 0x00, 0x00], // 1:明るい赤
     [0x00, 0xff, 0x00], // 2:明るい緑
@@ -21,6 +21,7 @@ const basic_rgb_table: [[u32; 3]; 16] = [
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum Color {
     Black = 0,
     LightRed = 1,
@@ -42,7 +43,7 @@ pub enum Color {
 
 /// Initialize palette with basic_rgb_table.
 pub fn init_palette() {
-    set_palette(0, 15, basic_rgb_table);
+    set_palette(0, 15, BASIC_RGB_TABLE);
 }
 
 /// set palette with given rgb table, from start to end (inclusive).
