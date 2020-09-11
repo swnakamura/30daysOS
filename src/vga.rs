@@ -19,6 +19,27 @@ const basic_rgb_table: [[u32; 3]; 16] = [
     [0x84, 0x84, 0x84], // 15:暗い灰色
 ];
 
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum Color {
+    Black = 0,
+    LightRed = 1,
+    LightGreen = 2,
+    LightYellow = 3,
+    LightBlue = 4,
+    LightPurple = 5,
+    LightCyan = 6,
+    White = 7,
+    LightGray = 8,
+    DarkRed = 9,
+    DarkGreen = 10,
+    DarkYellow = 11,
+    DarkBlue = 12,
+    DarkPurple = 13,
+    DarkCyan = 14,
+    DarkGray = 15,
+}
+
 /// Initialize palette with basic_rgb_table.
 pub fn init_palette() {
     set_palette(0, 15, basic_rgb_table);
@@ -38,4 +59,24 @@ fn set_palette(start: u32, end: u32, rgb: [[u32; 3]; 16]) {
     }
     io_func::store_eflags(eflags);
     return;
+}
+
+/// (x0, y0) から (x1, y1) の箱を塗る
+/// 教科書ではcharポインタを使っているので、色の代入はu8のサイズとわかり、なのでu8が使われていることに注目
+pub fn boxfill8(
+    vga_pointer: *mut u8,
+    xsize: u32,
+    color: Color,
+    x0: u32,
+    y0: u32,
+    x1: u32,
+    y1: u32,
+) {
+    for y in y0..=y1 {
+        for x in x0..=x1 {
+            unsafe {
+                *vga_pointer.offset((y * xsize + x) as isize) = color as u8;
+            }
+        }
+    }
 }

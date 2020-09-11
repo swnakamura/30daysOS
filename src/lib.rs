@@ -28,11 +28,12 @@ fn show_color(i: u32) {
 #[no_mangle]
 #[start]
 pub extern "C" fn haribote_os() -> ! {
-    // 本にある通り、0xa0000から0xaffffまで描画
     vga::init_palette();
-    for i in 0xa0000..0xaffff {
-        show_color(i);
-    }
+
+    let vga_pointer = 0xa0000 as *mut u8;
+    vga::boxfill8(vga_pointer, 320, vga::Color::LightRed, 20, 20, 120, 120);
+    vga::boxfill8(vga_pointer, 320, vga::Color::LightGreen, 70, 70, 170, 170);
+    vga::boxfill8(vga_pointer, 320, vga::Color::LightBlue, 120, 120, 220, 220);
     loop {
         hlt()
     }
