@@ -9,6 +9,12 @@ pub fn sti() {
         asm!("STI");
     }
 }
+pub fn stihlt() {
+    unsafe {
+        asm!("STI");
+        asm!("HLT");
+    }
+}
 
 pub fn out8(port: u32, data: u32) {
     unsafe {
@@ -16,6 +22,53 @@ pub fn out8(port: u32, data: u32) {
         asm!("MOV EAX, {}", in(reg) data);
         asm!("OUT DX, AL");
     }
+}
+
+pub fn out16(port: u32, data: u32) {
+    unsafe {
+        asm!("MOV EDX, {}", in(reg) port);
+        asm!("MOV EAX, {}", in(reg) data);
+        asm!("OUT DX, AX");
+    }
+}
+
+pub fn out32(port: u32, data: u32) {
+    unsafe {
+        asm!("MOV EDX, {}", in(reg) port);
+        asm!("MOV EAX, {}", in(reg) data);
+        asm!("OUT DX, EAX");
+    }
+}
+
+pub fn in8(port: u32) -> u32 {
+    let data: u32;
+    unsafe {
+        asm!("MOV EDX, {}", in(reg) port);
+        asm!("MOV EAX, 0");
+        asm!("IN  AL,  DX");
+        asm!("MOV {},  AL", out(reg) data);
+    }
+    data
+}
+
+pub fn in16(port: u32) -> u32 {
+    let data: u32;
+    unsafe {
+        asm!("MOV EDX, {}", in(reg) port);
+        asm!("MOV EAX, 0");
+        asm!("MOV {},  AL", out(reg) data);
+    }
+    data
+}
+
+pub fn in32(port: u32) -> u32 {
+    let data: u32;
+    unsafe {
+        asm!("MOV EDX, {}", in(reg) port);
+        asm!("MOV EAX, 0");
+        asm!("MOV {},  AL", out(reg) data);
+    }
+    data
 }
 
 pub fn load_eflags() -> u32 {
