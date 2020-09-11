@@ -4,15 +4,12 @@
 
 use core::panic::PanicInfo;
 
-#[no_mangle]
 fn hlt() {
     unsafe {
-        // assembly で "HLT" したのと同じ効果がある。
         asm!("hlt");
     }
 }
 
-#[no_mangle]
 fn show_white(i: u32) {
     // 白色なので15
     let a: u8 = 15;
