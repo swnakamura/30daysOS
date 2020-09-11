@@ -23,7 +23,8 @@ ${output_dir}/${image_file}: ${output_dir}/${os_file}.sys ${output_dir}/${ipl_fi
 	mformat -f 1440 -B ${output_dir}/${ipl_file}.bin -C -i $@ ::
 	mcopy $< -i $@ ::
 
-img: ${output_dir}/${image_file}
+img:   ${output_dir}/${image_file}
+build: ${output_dir}/${image_file}
 
 run: img
 	qemu-system-x86_64 -drive format=raw,if=floppy,file=${output_dir}/${image_file}
