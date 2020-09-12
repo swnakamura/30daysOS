@@ -41,31 +41,10 @@ pub enum Color {
     DarkGray = 15,
 }
 
-/// Initialize palette with ScreenStringWriterble.
-pub fn init_palette() {
-    set_palette(0, 15, BASIC_RGB_TABLE);
-}
-
-/// set palette with given rgb table, from start to end (inclusive).
-fn set_palette(start: u32, end: u32, rgb: [[u32; 3]; 16]) {
-    let eflags;
-    eflags = io_func::load_eflags();
-    io_func::cli();
-    io_func::out8(0x03c8, start);
-    for i in start..=end {
-        let i = i as usize;
-        io_func::out8(0x03c9, rgb[i][0] >> 2);
-        io_func::out8(0x03c9, rgb[i][1] >> 2);
-        io_func::out8(0x03c9, rgb[i][2] >> 2);
-    }
-    io_func::store_eflags(eflags);
-    return;
-}
-
 /// (x0, y0) から (x1, y1) の箱を塗る
 /// 教科書ではcharポインタを使っているので、色の代入はu8のサイズとわかり、なのでu8が使われていることに注目
-pub fn boxfill8(sinfo: &ScreenInfo, color: Color, x0: u16, y0: u16, x1: u16, y1: u16) {
-    let ScreenInfo {
+pub fn boxfill8(sinfo: &Screen, color: Color, x0: u16, y0: u16, x1: u16, y1: u16) {
+    let Screen {
         screenx: xsize,
         vram_pointer,
         ..
@@ -80,39 +59,75 @@ pub fn boxfill8(sinfo: &ScreenInfo, color: Color, x0: u16, y0: u16, x1: u16, y1:
     }
 }
 
-pub struct ScreenInfo {
+pub struct Screen {
     pub screenx: u16,
     pub screeny: u16,
     pub vram_pointer: *mut u8,
 }
 
-pub fn init_screen(sinfo: &ScreenInfo) {
-    let ScreenInfo {
-        screenx: xsize,
-        screeny: ysize,
-        ..
-    } = sinfo;
-    use Color::*;
+impl Screen {
+    pub fn new() -> Self {
+        Self::init_palette();
+        unsafe {
+            Screen {
+                screenx: *(0x0ff4 as *const u16),
+                screeny: *(0x0ff6 as *const u16),
+                vram_pointer: *(0x0ff8 as *const *mut u8),
+            }
+        }
+    }
 
-    let boxes_to_draw = [
-        (DarkCyan, 0, 0, xsize - 1, ysize - 29),
-        (LightGray, 0, ysize - 28, xsize - 1, ysize - 28),
-        (White, 0, ysize - 27, xsize - 1, ysize - 27),
-        (LightGray, 0, ysize - 26, xsize - 1, ysize - 1),
-        (White, 3, ysize - 24, 59, ysize - 24),
-        (White, 2, ysize - 24, 2, ysize - 4),
-        (DarkGray, 3, ysize - 4, 59, ysize - 4),
-        (DarkGray, 59, ysize - 23, 59, ysize - 5),
-        (Black, 2, ysize - 3, 59, ysize - 3),
-        (Black, 60, ysize - 24, 60, ysize - 3),
-        (DarkGray, xsize - 47, ysize - 24, xsize - 4, ysize - 24),
-        (DarkGray, xsize - 47, ysize - 23, xsize - 47, ysize - 4),
-        (White, xsize - 47, ysize - 3, xsize - 4, ysize - 3),
-        (White, xsize - 3, ysize - 24, xsize - 3, ysize - 3),
-    ];
+    pub fn init(&self) {
+        self.draw_desktop_items();
+    }
+    fn draw_desktop_items(&self) {
+        let Screen {
+            screenx: xsize,
+            screeny: ysize,
+            ..
+        } = self;
 
-    for info in boxes_to_draw.iter() {
-        boxfill8(&sinfo, info.0, info.1, info.2, info.3, info.4);
+        use Color::*;
+        let boxes_to_draw = [
+            (DarkCyan, 0, 0, xsize - 1, ysize - 29),
+            (LightGray, 0, ysize - 28, xsize - 1, ysize - 28),
+            (White, 0, ysize - 27, xsize - 1, ysize - 27),
+            (LightGray, 0, ysize - 26, xsize - 1, ysize - 1),
+            (White, 3, ysize - 24, 59, ysize - 24),
+            (White, 2, ysize - 24, 2, ysize - 4),
+            (DarkGray, 3, ysize - 4, 59, ysize - 4),
+            (DarkGray, 59, ysize - 23, 59, ysize - 5),
+            (Black, 2, ysize - 3, 59, ysize - 3),
+            (Black, 60, ysize - 24, 60, ysize - 3),
+            (DarkGray, xsize - 47, ysize - 24, xsize - 4, ysize - 24),
+            (DarkGray, xsize - 47, ysize - 23, xsize - 47, ysize - 4),
+            (White, xsize - 47, ysize - 3, xsize - 4, ysize - 3),
+            (White, xsize - 3, ysize - 24, xsize - 3, ysize - 3),
+        ];
+
+        for info in boxes_to_draw.iter() {
+            boxfill8(self, info.0, info.1, info.2, info.3, info.4);
+        }
+    }
+    /// Initialize palette with ScreenStringWriterble.
+    pub fn init_palette() {
+        Self::set_palette(0, 15, BASIC_RGB_TABLE);
+    }
+
+    /// set palette with given rgb table, from start to end (inclusive).
+    fn set_palette(start: u32, end: u32, rgb: [[u32; 3]; 16]) {
+        let eflags;
+        eflags = io_func::load_eflags();
+        io_func::cli();
+        io_func::out8(0x03c8, start);
+        for i in start..=end {
+            let i = i as usize;
+            io_func::out8(0x03c9, rgb[i][0] >> 2);
+            io_func::out8(0x03c9, rgb[i][1] >> 2);
+            io_func::out8(0x03c9, rgb[i][2] >> 2);
+        }
+        io_func::store_eflags(eflags);
+        return;
     }
 }
 
@@ -121,7 +136,7 @@ const FONT_WIDTH: isize = 8;
 const FONT_HEIGHT: isize = 16;
 
 pub struct ScreenStringWriter<'a> {
-    sinfo: &'a ScreenInfo,
+    screen: &'a Screen,
     x: isize,
     x0: isize,
     y: isize,
@@ -129,9 +144,9 @@ pub struct ScreenStringWriter<'a> {
 }
 
 impl<'a> ScreenStringWriter<'a> {
-    pub fn new(sinfo: &'a ScreenInfo, x: isize, y: isize, color: Color) -> Self {
+    pub fn new(screen: &'a Screen, x: isize, y: isize, color: Color) -> Self {
         ScreenStringWriter {
-            sinfo,
+            screen: screen,
             x,
             x0: x,
             y,
@@ -146,14 +161,18 @@ impl<'a> ScreenStringWriter<'a> {
 
     fn putfont8(&mut self, id: u8) {
         let ScreenStringWriter {
-            sinfo, x, y, color, ..
+            screen,
+            x,
+            y,
+            color,
+            ..
         } = *self;
-        let xsize = sinfo.screenx;
+        let xsize = screen.screenx;
         let font = FONT_DATA[id as usize];
         for i in 0..16 {
             let d = font[i];
             unsafe {
-                let p = sinfo
+                let p = screen
                     .vram_pointer
                     .offset(((y + i as isize) * xsize as isize + x) as isize);
                 if d & 0x80 != 0 {
@@ -185,7 +204,7 @@ impl<'a> ScreenStringWriter<'a> {
     }
 
     fn putfonts8_ascii(&mut self, string: &str) {
-        let screenx = self.sinfo.screenx;
+        let screenx = self.screen.screenx;
         if !string.is_ascii() {
             self.putfonts8_ascii("NOT ASCII!!!");
             return;
@@ -211,3 +230,36 @@ impl<'a> core::fmt::Write for ScreenStringWriter<'a> {
         Ok(())
     }
 }
+
+// pub fn init_mouse_cursor8(bc: &Color) -> [[Color; 16]; 16] {
+//     let mouse: [[Color; 16]; 16];
+//     let cursor: [[u8; 16]; 16] = [
+//         *b"**************..",
+//         *b"*OOOOOOOOOOO*...",
+//         *b"*OOOOOOOOOO*....",
+//         *b"*OOOOOOOOO*.....",
+//         *b"*OOOOOOOO*......",
+//         *b"*OOOOOOO*.......",
+//         *b"*OOOOOOO*.......",
+//         *b"*OOOOOOOO*......",
+//         *b"*OOOO**OOO*.....",
+//         *b"*OOO*..*OOO*....",
+//         *b"*OO*....*OOO*...",
+//         *b"*O*......*OOO*..",
+//         *b"**........*OOO*.",
+//         *b"*..........*OOO*",
+//         *b"............*OO*",
+//         *b".............***",
+//     ];
+
+//     for y in 0..16 {
+//         for x in 0..16 {
+//             mouse[x][y] = match cursor[x][y] {
+//                 b'*' => Color::Black,
+//                 b'O' => Color::White,
+//                 _ => *bc,
+//             };
+//         }
+//     }
+//     mouse
+// }
