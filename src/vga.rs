@@ -67,8 +67,8 @@ fn set_palette(start: u32, end: u32, rgb: [[u32; 3]; 16]) {
 pub fn boxfill8(sinfo: &ScreenInfo, color: Color, x0: u16, y0: u16, x1: u16, y1: u16) {
     let ScreenInfo {
         screenx: xsize,
-        screeny: ysize,
         vram_pointer,
+        ..
     } = sinfo;
 
     for y in y0..=y1 {
@@ -90,7 +90,7 @@ pub fn init_screen(sinfo: &ScreenInfo) {
     let ScreenInfo {
         screenx: xsize,
         screeny: ysize,
-        vram_pointer,
+        ..
     } = sinfo;
     use Color::*;
 

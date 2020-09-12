@@ -31,12 +31,12 @@ pub extern "C" fn haribote_os() -> ! {
     vga::init_screen(&sinfo);
 
     let abc123 = "ABC 123";
-    let hariboteOS = "I love Leafeon the best.How about you?";
+    let haribote_os = "I love Leafeon the best.How about you?";
     let japanese_sentence = "日本語";
 
     vga::putfonts8_ascii(&sinfo, 8, 10, vga::Color::White, abc123);
-    vga::putfonts8_ascii(&sinfo, 9, 27, vga::Color::Black, hariboteOS);
-    vga::putfonts8_ascii(&sinfo, 8, 26, vga::Color::White, hariboteOS);
+    vga::putfonts8_ascii(&sinfo, 9, 27, vga::Color::Black, haribote_os);
+    vga::putfonts8_ascii(&sinfo, 8, 26, vga::Color::White, haribote_os);
     vga::putfonts8_ascii(&sinfo, 8, 42, vga::Color::White, japanese_sentence);
 
     loop {
