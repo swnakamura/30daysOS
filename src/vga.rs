@@ -116,10 +116,11 @@ pub fn init_screen(sinfo: &ScreenInfo) {
     }
 }
 
-type Font = [u16; 16];
+use crate::font::FONT_DATA;
 
-pub fn putfont8(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, font: &Font) {
+pub fn putfont8(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, id: u8) {
     let xsize = sinfo.screenx;
+    let font = FONT_DATA[id as usize];
     for i in 0..16 {
         let d = font[i];
         unsafe {
@@ -154,10 +155,14 @@ pub fn putfont8(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, font: &Font) {
     }
 }
 
-pub fn putfonts8_ascii(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, fonts: [&Font; 6]) {
+pub fn putfonts8_ascii(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, string: &str) {
+    if !string.is_ascii() {
+        putfonts8_ascii(sinfo, x as u16, y, color, "NOT ASCII!!!");
+        return;
+    }
     let mut x = x;
-    for item in fonts.iter() {
-        putfont8(sinfo, x as u16, y, color, item);
+    for item in string.chars() {
+        putfont8(sinfo, x as u16, y, color, item as u8);
         x += 8;
     }
 }

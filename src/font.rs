@@ -1,3 +1,3 @@
 type Font = [[u16; 16]; 256];
 
-pub const fontdata: Font = include!("../build/font.in");
+pub const FONT_DATA: Font = include!("../build/font.in");
