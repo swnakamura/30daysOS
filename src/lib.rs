@@ -11,18 +11,15 @@ fn hlt() {
         asm!("HLT");
     }
 }
+mod font;
 mod io_func;
 mod vga;
-
-mod font;
 
 #[no_mangle]
 #[start]
 pub extern "C" fn haribote_os() -> ! {
-    let screen = vga::Screen::new();
+    let mut screen = vga::Screen::new();
     screen.init();
-
-    // let mcursor = vga::init_mouse_cursor8(&vga::Color::DarkGreen);
 
     loop {
         hlt()

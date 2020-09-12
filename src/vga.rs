@@ -60,9 +60,10 @@ pub fn boxfill8(sinfo: &Screen, color: Color, x0: u16, y0: u16, x1: u16, y1: u16
 }
 
 pub struct Screen {
-    pub screenx: u16,
-    pub screeny: u16,
-    pub vram_pointer: *mut u8,
+    screenx: u16,
+    screeny: u16,
+    vram_pointer: *mut u8,
+    mcursor: [[Color; 16]; 16],
 }
 
 impl Screen {
@@ -73,12 +74,15 @@ impl Screen {
                 screenx: *(0x0ff4 as *const u16),
                 screeny: *(0x0ff6 as *const u16),
                 vram_pointer: *(0x0ff8 as *const *mut u8),
+                mcursor: [[Color::Black; 16]; 16],
             }
         }
     }
 
-    pub fn init(&self) {
+    pub fn init(&mut self) {
         self.draw_desktop_items();
+        self.init_mouse_cursor8(&Color::DarkCyan);
+        self.putblock8_8(100, 100);
     }
     fn draw_desktop_items(&self) {
         let Screen {
@@ -128,6 +132,47 @@ impl Screen {
         }
         io_func::store_eflags(eflags);
         return;
+    }
+    fn init_mouse_cursor8(&mut self, bc: &Color) {
+        let cursor: [[u8; 16]; 16] = [
+            *b"**************..",
+            *b"*OOOOOOOOOOO*...",
+            *b"*OOOOOOOOOO*....",
+            *b"*OOOOOOOOO*.....",
+            *b"*OOOOOOOO*......",
+            *b"*OOOOOOO*.......",
+            *b"*OOOOOOO*.......",
+            *b"*OOOOOOOO*......",
+            *b"*OOOO**OOO*.....",
+            *b"*OOO*..*OOO*....",
+            *b"*OO*....*OOO*...",
+            *b"*O*......*OOO*..",
+            *b"**........*OOO*.",
+            *b"*..........*OOO*",
+            *b"............*OO*",
+            *b".............***",
+        ];
+
+        for y in 0..16 {
+            for x in 0..16 {
+                self.mcursor[x][y] = match cursor[x][y] {
+                    b'*' => Color::Black,
+                    b'O' => Color::White,
+                    _ => *bc,
+                };
+            }
+        }
+    }
+    fn putblock8_8(&self, x0: isize, y0: isize) {
+        let vram = self.vram_pointer;
+        for (x, line) in self.mcursor.iter().enumerate() {
+            for (y, color) in line.iter().enumerate() {
+                unsafe {
+                    *vram.offset((y0 + y as isize) * self.screenx as isize + x0 + x as isize) =
+                        self.mcursor[x][y] as u8;
+                }
+            }
+        }
     }
 }
 
@@ -230,36 +275,3 @@ impl<'a> core::fmt::Write for ScreenStringWriter<'a> {
         Ok(())
     }
 }
-
-// pub fn init_mouse_cursor8(bc: &Color) -> [[Color; 16]; 16] {
-//     let mouse: [[Color; 16]; 16];
-//     let cursor: [[u8; 16]; 16] = [
-//         *b"**************..",
-//         *b"*OOOOOOOOOOO*...",
-//         *b"*OOOOOOOOOO*....",
-//         *b"*OOOOOOOOO*.....",
-//         *b"*OOOOOOOO*......",
-//         *b"*OOOOOOO*.......",
-//         *b"*OOOOOOO*.......",
-//         *b"*OOOOOOOO*......",
-//         *b"*OOOO**OOO*.....",
-//         *b"*OOO*..*OOO*....",
-//         *b"*OO*....*OOO*...",
-//         *b"*O*......*OOO*..",
-//         *b"**........*OOO*.",
-//         *b"*..........*OOO*",
-//         *b"............*OO*",
-//         *b".............***",
-//     ];
-
-//     for y in 0..16 {
-//         for x in 0..16 {
-//             mouse[x][y] = match cursor[x][y] {
-//                 b'*' => Color::Black,
-//                 b'O' => Color::White,
-//                 _ => *bc,
-//             };
-//         }
-//     }
-//     mouse
-// }
