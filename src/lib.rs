@@ -4,6 +4,8 @@
 
 use core::panic::PanicInfo;
 
+use core::fmt::Write;
+
 fn hlt() {
     unsafe {
         asm!("HLT");
@@ -31,13 +33,22 @@ pub extern "C" fn haribote_os() -> ! {
     vga::init_screen(&sinfo);
 
     let abc123 = "ABC 123";
-    let haribote_os = "I love Leafeon the best.How about you?";
+    let newline_in_string = "ABC\n123";
+    let haribote_os = "\"I love Leafeon the best. How about you\"? She answered \"Mesprit\".";
     let japanese_sentence = "日本語";
+    let x = 42;
 
-    vga::putfonts8_ascii(&sinfo, 8, 10, vga::Color::White, abc123);
-    vga::putfonts8_ascii(&sinfo, 9, 27, vga::Color::Black, haribote_os);
-    vga::putfonts8_ascii(&sinfo, 8, 26, vga::Color::White, haribote_os);
-    vga::putfonts8_ascii(&sinfo, 8, 42, vga::Color::White, japanese_sentence);
+    let mut string_writer = vga::ScreenStringWriter::new(&sinfo, 8, 10, vga::Color::White);
+
+    write!(&mut string_writer, "{}", abc123).unwrap();
+    string_writer.newline();
+    write!(&mut string_writer, "{}", newline_in_string).unwrap();
+    string_writer.newline();
+    write!(&mut string_writer, "{}", haribote_os).unwrap();
+    string_writer.newline();
+    write!(&mut string_writer, "{}", japanese_sentence).unwrap();
+    string_writer.newline();
+    write!(&mut string_writer, "x: {}", x).unwrap();
 
     loop {
         hlt()

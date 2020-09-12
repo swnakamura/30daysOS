@@ -41,7 +41,7 @@ pub enum Color {
     DarkGray = 15,
 }
 
-/// Initialize palette with basic_rgb_table.
+/// Initialize palette with ScreenStringWriterble.
 pub fn init_palette() {
     set_palette(0, 15, BASIC_RGB_TABLE);
 }
@@ -117,52 +117,97 @@ pub fn init_screen(sinfo: &ScreenInfo) {
 }
 
 use crate::font::FONT_DATA;
+const FONT_WIDTH: isize = 8;
+const FONT_HEIGHT: isize = 16;
 
-pub fn putfont8(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, id: u8) {
-    let xsize = sinfo.screenx;
-    let font = FONT_DATA[id as usize];
-    for i in 0..16 {
-        let d = font[i];
-        unsafe {
-            let p = sinfo
-                .vram_pointer
-                .offset(((y + i as u16) * xsize + x) as isize);
-            if d & 0x80 != 0 {
-                *p = color as u8;
+pub struct ScreenStringWriter<'a> {
+    sinfo: &'a ScreenInfo,
+    x: isize,
+    x0: isize,
+    y: isize,
+    color: Color,
+}
+
+impl<'a> ScreenStringWriter<'a> {
+    pub fn new(sinfo: &'a ScreenInfo, x: isize, y: isize, color: Color) -> Self {
+        ScreenStringWriter {
+            sinfo,
+            x,
+            x0: x,
+            y,
+            color,
+        }
+    }
+
+    pub fn newline(&mut self) {
+        self.x = self.x0;
+        self.y += FONT_HEIGHT;
+    }
+
+    fn putfont8(&mut self, id: u8) {
+        let ScreenStringWriter {
+            sinfo, x, y, color, ..
+        } = *self;
+        let xsize = sinfo.screenx;
+        let font = FONT_DATA[id as usize];
+        for i in 0..16 {
+            let d = font[i];
+            unsafe {
+                let p = sinfo
+                    .vram_pointer
+                    .offset(((y + i as isize) * xsize as isize + x) as isize);
+                if d & 0x80 != 0 {
+                    *p = color as u8;
+                }
+                if d & 0x40 != 0 {
+                    *p.offset(1) = color as u8;
+                }
+                if d & 0x20 != 0 {
+                    *p.offset(2) = color as u8;
+                }
+                if d & 0x10 != 0 {
+                    *p.offset(3) = color as u8;
+                }
+                if d & 0x08 != 0 {
+                    *p.offset(4) = color as u8;
+                }
+                if d & 0x04 != 0 {
+                    *p.offset(5) = color as u8;
+                }
+                if d & 0x02 != 0 {
+                    *p.offset(6) = color as u8;
+                }
+                if d & 0x01 != 0 {
+                    *p.offset(7) = color as u8;
+                }
             }
-            if d & 0x40 != 0 {
-                *p.offset(1) = color as u8;
+        }
+    }
+
+    fn putfonts8_ascii(&mut self, string: &str) {
+        let screenx = self.sinfo.screenx;
+        if !string.is_ascii() {
+            self.putfonts8_ascii("NOT ASCII!!!");
+            return;
+        }
+        for item in string.chars() {
+            if item == '\n' {
+                self.newline();
+                continue;
             }
-            if d & 0x20 != 0 {
-                *p.offset(2) = color as u8;
-            }
-            if d & 0x10 != 0 {
-                *p.offset(3) = color as u8;
-            }
-            if d & 0x08 != 0 {
-                *p.offset(4) = color as u8;
-            }
-            if d & 0x04 != 0 {
-                *p.offset(5) = color as u8;
-            }
-            if d & 0x02 != 0 {
-                *p.offset(6) = color as u8;
-            }
-            if d & 0x01 != 0 {
-                *p.offset(7) = color as u8;
+            self.putfont8(item as u8);
+            if screenx as isize <= self.x + FONT_WIDTH {
+                self.newline();
+            } else {
+                self.x += FONT_WIDTH;
             }
         }
     }
 }
 
-pub fn putfonts8_ascii(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, string: &str) {
-    if !string.is_ascii() {
-        putfonts8_ascii(sinfo, x as u16, y, color, "NOT ASCII!!!");
-        return;
-    }
-    let mut x = x;
-    for item in string.chars() {
-        putfont8(sinfo, x as u16, y, color, item as u8);
-        x += 8;
+impl<'a> core::fmt::Write for ScreenStringWriter<'a> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.putfonts8_ascii(s);
+        Ok(())
     }
 }
