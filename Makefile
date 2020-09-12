@@ -12,7 +12,7 @@ ${output_dir}/${ipl_file}.bin: ${asm_dir}/${ipl_file}.nas
 ${output_dir}/${asm_head}.bin: ${asm_dir}/${asm_head}.nas
 	nasm $^ -o $@ -l ${output_dir}/${asm_head}.lst
 
-${output_dir}/${kernel}.bin: src/lib.rs
+${output_dir}/${kernel}.bin: src/lib.rs ${output_dir}/font.in
 	cargo xbuild --target i686-haribote.json
 	ld -v -nostdlib -m elf_i386 -Tdata=0x00310000 -Tkernel.ld ./target/i686-haribote/debug/libharibote_os.a -o $@
 
@@ -23,6 +23,10 @@ ${output_dir}/${image_file}: ${output_dir}/${os_file}.sys ${output_dir}/${ipl_fi
 	mformat -f 1440 -B ${output_dir}/${ipl_file}.bin -C -i $@ ::
 	mcopy $< -i $@ ::
 
+${output_dir}/font.in: src/font_data/hankaku.txt
+	cd src/font_data; python3 process_hankaku.py
+
+.DEFAULT_GOAL :=
 img:   ${output_dir}/${image_file}
 build: ${output_dir}/${image_file}
 
