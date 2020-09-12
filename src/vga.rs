@@ -82,17 +82,19 @@ pub fn boxfill8(
     }
 }
 
-pub fn draw_haribote_desktop() {
+pub struct ScreenInfo {
+    pub screenx: u16,
+    pub screeny: u16,
+    pub vram_pointer: *mut u8,
+}
+
+pub fn draw_haribote_desktop(sinfo: ScreenInfo) {
+    let ScreenInfo {
+        screenx: xsize,
+        screeny: ysize,
+        vram_pointer,
+    } = sinfo;
     use Color::*;
-    let (xsize, ysize, vram_pointer);
-    unsafe {
-        let binfo_screenx = 0x0ff4 as *const u16;
-        let binfo_screeny = 0x0ff6 as *const u16;
-        let binfo_vram = 0x0ff8 as *const *mut u8;
-        xsize = *binfo_screenx;
-        ysize = *binfo_screeny;
-        vram_pointer = *binfo_vram;
-    }
 
     let boxes_to_draw = [
         (DarkCyan, 0, 0, xsize - 1, ysize - 29),

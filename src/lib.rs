@@ -17,7 +17,16 @@ mod vga;
 pub extern "C" fn haribote_os() -> ! {
     vga::init_palette();
 
-    vga::draw_haribote_desktop();
+    let sinfo;
+    unsafe {
+        sinfo = vga::ScreenInfo {
+            screenx: *(0x0ff4 as *const u16),
+            screeny: *(0x0ff6 as *const u16),
+            vram_pointer: *(0x0ff8 as *const *mut u8),
+        };
+    }
+
+    vga::draw_haribote_desktop(sinfo);
 
     loop {
         hlt()
