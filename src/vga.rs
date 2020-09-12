@@ -153,3 +153,11 @@ pub fn putfont8(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, font: &Font) {
         }
     }
 }
+
+pub fn putfonts8_ascii(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, fonts: [&Font; 6]) {
+    let mut x = x;
+    for item in fonts.iter() {
+        putfont8(sinfo, x as u16, y, color, item);
+        x += 8;
+    }
+}

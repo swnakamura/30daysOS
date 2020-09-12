@@ -30,12 +30,16 @@ pub extern "C" fn haribote_os() -> ! {
 
     vga::init_screen(&sinfo);
 
-    vga::putfont8(&sinfo, 8, 10, vga::Color::Black, &font::fontdata[65]);
-    vga::putfont8(&sinfo, 16, 10, vga::Color::Black, &font::fontdata[66]);
-    vga::putfont8(&sinfo, 24, 10, vga::Color::Black, &font::fontdata[67]);
-    vga::putfont8(&sinfo, 40, 10, vga::Color::Black, &font::fontdata[49]);
-    vga::putfont8(&sinfo, 48, 10, vga::Color::Black, &font::fontdata[50]);
-    vga::putfont8(&sinfo, 56, 10, vga::Color::Black, &font::fontdata[51]);
+    let v = [
+        &font::fontdata[65],
+        &font::fontdata[66],
+        &font::fontdata[67],
+        &font::fontdata[49],
+        &font::fontdata[50],
+        &font::fontdata[51],
+    ];
+
+    vga::putfonts8_ascii(&sinfo, 8, 10, vga::Color::Black, v);
 
     loop {
         hlt()
