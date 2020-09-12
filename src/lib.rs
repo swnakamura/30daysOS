@@ -26,7 +26,7 @@ pub extern "C" fn haribote_os() -> ! {
         };
     }
 
-    vga::draw_haribote_desktop(sinfo);
+    vga::init_screen(sinfo);
 
     loop {
         hlt()

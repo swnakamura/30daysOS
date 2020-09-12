@@ -88,7 +88,7 @@ pub struct ScreenInfo {
     pub vram_pointer: *mut u8,
 }
 
-pub fn draw_haribote_desktop(sinfo: ScreenInfo) {
+pub fn init_screen(sinfo: ScreenInfo) {
     let ScreenInfo {
         screenx: xsize,
         screeny: ysize,
