@@ -12,7 +12,7 @@ ${output_dir}/${ipl_file}.bin: ${asm_dir}/${ipl_file}.nas
 ${output_dir}/${asm_head}.bin: ${asm_dir}/${asm_head}.nas
 	nasm $^ -o $@ -l ${output_dir}/${asm_head}.lst
 
-${output_dir}/${kernel}.bin: src/lib.rs ${output_dir}/font.in
+${output_dir}/${kernel}.bin: $(shell fd -t file . src) ${output_dir}/font.in
 	cargo xbuild --target i686-haribote.json
 	ld -v -nostdlib -m elf_i386 -Tdata=0x00310000 -Tkernel.ld ./target/i686-haribote/debug/libharibote_os.a -o $@
 
