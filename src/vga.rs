@@ -64,19 +64,17 @@ fn set_palette(start: u32, end: u32, rgb: [[u32; 3]; 16]) {
 
 /// (x0, y0) から (x1, y1) の箱を塗る
 /// 教科書ではcharポインタを使っているので、色の代入はu8のサイズとわかり、なのでu8が使われていることに注目
-pub fn boxfill8(
-    vga_pointer: *mut u8,
-    xsize: u16,
-    color: Color,
-    x0: u16,
-    y0: u16,
-    x1: u16,
-    y1: u16,
-) {
+pub fn boxfill8(sinfo: &ScreenInfo, color: Color, x0: u16, y0: u16, x1: u16, y1: u16) {
+    let ScreenInfo {
+        screenx: xsize,
+        screeny: ysize,
+        vram_pointer,
+    } = sinfo;
+
     for y in y0..=y1 {
         for x in x0..=x1 {
             unsafe {
-                *vga_pointer.offset((y * xsize + x) as isize) = color as u8;
+                *vram_pointer.offset((y * xsize + x) as isize) = color as u8;
             }
         }
     }
@@ -114,6 +112,6 @@ pub fn init_screen(sinfo: ScreenInfo) {
     ];
 
     for info in boxes_to_draw.iter() {
-        boxfill8(vram_pointer, xsize, info.0, info.1, info.2, info.3, info.4);
+        boxfill8(&sinfo, info.0, info.1, info.2, info.3, info.4);
     }
 }
