@@ -86,7 +86,7 @@ pub struct ScreenInfo {
     pub vram_pointer: *mut u8,
 }
 
-pub fn init_screen(sinfo: ScreenInfo) {
+pub fn init_screen(sinfo: &ScreenInfo) {
     let ScreenInfo {
         screenx: xsize,
         screeny: ysize,
@@ -113,5 +113,43 @@ pub fn init_screen(sinfo: ScreenInfo) {
 
     for info in boxes_to_draw.iter() {
         boxfill8(&sinfo, info.0, info.1, info.2, info.3, info.4);
+    }
+}
+
+type Font = [u16; 16];
+
+pub fn putfont8(sinfo: &ScreenInfo, x: u16, y: u16, color: Color, font: &Font) {
+    let xsize = sinfo.screenx;
+    for i in 0..16 {
+        let d = font[i];
+        unsafe {
+            let p = sinfo
+                .vram_pointer
+                .offset(((y + i as u16) * xsize + x) as isize);
+            if d & 0x80 != 0 {
+                *p = color as u8;
+            }
+            if d & 0x40 != 0 {
+                *p.offset(1) = color as u8;
+            }
+            if d & 0x20 != 0 {
+                *p.offset(2) = color as u8;
+            }
+            if d & 0x10 != 0 {
+                *p.offset(3) = color as u8;
+            }
+            if d & 0x08 != 0 {
+                *p.offset(4) = color as u8;
+            }
+            if d & 0x04 != 0 {
+                *p.offset(5) = color as u8;
+            }
+            if d & 0x02 != 0 {
+                *p.offset(6) = color as u8;
+            }
+            if d & 0x01 != 0 {
+                *p.offset(7) = color as u8;
+            }
+        }
     }
 }

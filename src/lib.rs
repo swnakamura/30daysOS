@@ -12,6 +12,14 @@ fn hlt() {
 mod io_func;
 mod vga;
 
+mod font {
+    type Font = [u16; 16];
+    pub const A: Font = [
+        0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24, 0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00,
+        0x00,
+    ];
+}
+
 #[no_mangle]
 #[start]
 pub extern "C" fn haribote_os() -> ! {
@@ -26,7 +34,9 @@ pub extern "C" fn haribote_os() -> ! {
         };
     }
 
-    vga::init_screen(sinfo);
+    vga::init_screen(&sinfo);
+
+    vga::putfont8(&sinfo, 10, 10, vga::Color::Black, &font::A);
 
     loop {
         hlt()
