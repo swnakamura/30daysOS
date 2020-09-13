@@ -14,7 +14,7 @@ fn hlt() {
 mod font;
 mod io_func;
 mod vga;
-mod descriptor_table {
+mod dsc_tbl {
     mod gdt {
         /// 全部で8Byteの構造体。目的などについてnote.mdも参照すること。
         ///
@@ -140,7 +140,7 @@ pub extern "C" fn haribote_os() -> ! {
     let mut screen = vga::Screen::new();
     screen.init();
 
-    descriptor_table::init_gdtidt();
+    dsc_tbl::init_gdtidt();
 
     loop {
         hlt()

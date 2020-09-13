@@ -169,7 +169,7 @@ impl Screen {
             for (y, color) in line.iter().enumerate() {
                 unsafe {
                     *vram.offset((y0 + y as isize) * self.screenx as isize + x0 + x as isize) =
-                        self.mcursor[x][y] as u8;
+                        *color as u8;
                 }
             }
         }
