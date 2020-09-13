@@ -1,5 +1,5 @@
 if __name__ == '__main__':
-    with open("./hankaku.txt", 'r') as f, open("../../build/font.in", 'w') as f_out:
+    with open("./hankaku.txt", 'r') as f, open("../build/font.in", 'w') as f_out:
         f_out.writelines("[\n")
         for item in f.readlines():
             item = item.strip()

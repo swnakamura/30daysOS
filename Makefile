@@ -21,8 +21,8 @@ ${output_dir}/${image_file}: ${output_dir}/${os_file}.sys ${output_dir}/${ipl_fi
 	mformat -f 1440 -B ${output_dir}/${ipl_file}.bin -C -i $@ ::
 	mcopy $< -i $@ ::
 
-${output_dir}/font.in: src/font_data/hankaku.txt
-	cd src/font_data; python3 process_hankaku.py
+${output_dir}/font.in: font_data/hankaku.txt
+	cd font_data; python3 process_hankaku.py
 
 .DEFAULT_GOAL :=
 img:   ${output_dir}/${image_file}
