@@ -7,10 +7,8 @@ kernel = kernel
 asm_dir = asm
 output_dir = build
 
-${output_dir}/${ipl_file}.bin: ${asm_dir}/${ipl_file}.nas
-	nasm $^ -o $@ -l ${output_dir}/${ipl_file}.lst
-${output_dir}/${asm_head}.bin: ${asm_dir}/${asm_head}.nas
-	nasm $^ -o $@ -l ${output_dir}/${asm_head}.lst
+${output_dir}/%.bin: ${asm_dir}/%.nas
+	nasm $^ -o $@ -l ${output_dir}/$*.lst
 
 ${output_dir}/${kernel}.bin: $(shell fd -t file . src) ${output_dir}/font.in
 	cargo xbuild --target i686-haribote.json
