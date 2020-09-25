@@ -7,7 +7,7 @@ extern crate rlibc;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
-mod vga_text;
+use haribote2::println;
 
 fn hlt() {
     unsafe {
@@ -17,7 +17,10 @@ fn hlt() {
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    println!("Hello, world{}", "!");
+    haribote2::init();
+
+    x86_64::instructions::interrupts::int3();
+    println!("It did not crash!");
     loop {
         hlt();
     }

@@ -11,6 +11,7 @@ rlibc = "1.0.0"
 bootloader = "0.9.9"
 volatile = "0.3.0"
 spin = "0.5.2"
+x86_64 = "0.12.1"
 
 [dependencies.lazy_static]
 version = "1.0"
