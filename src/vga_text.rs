@@ -127,16 +127,43 @@ impl fmt::Write for Writer {
 }
 
 #[macro_export]
-macro_rules! println {
-        () => (print!("\n"));
-        ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-    }
-#[macro_export]
 macro_rules! print {
         ($($arg:tt)*) => ($crate::vga_text::_print(format_args!($($arg)*)));
     }
 
+#[macro_export]
+macro_rules! println {
+        () => (print!("\n"));
+        ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+    }
+
+#[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     WRITER.lock().write_fmt(args).unwrap();
+}
+
+#[test_case]
+fn test_println() {
+    println!("test_println output");
+}
+
+#[test_case]
+fn test_println_many() {
+    for _ in 0..200 {
+        println!("test_println_many output");
+    }
+}
+
+#[test_case]
+fn test_println_output() {
+    let s = "Some test string that fits on a single line";
+    println!();
+    println!("{}", s);
+    for (i, c) in s.bytes().enumerate() {
+        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i]
+            .read()
+            .ascii_character;
+        assert_eq!(screen_char, c);
+    }
 }
