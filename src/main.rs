@@ -9,13 +9,7 @@ extern crate rlibc;
 
 use core::panic::PanicInfo;
 
-use haribote2::println;
-
-fn hlt() {
-    unsafe {
-        asm!("HLT");
-    }
-}
+use haribote2::{print, println};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
@@ -25,9 +19,8 @@ pub extern "C" fn _start() -> ! {
     test_main();
 
     println!("It did not crash!");
-    loop {
-        hlt();
-    }
+
+    haribote2::hlt_loop()
 }
 
 #[cfg(test)]
@@ -38,8 +31,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[cfg(not(test))]
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {
-        hlt();
-    }
+fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
+    haribote2::hlt_loop()
 }

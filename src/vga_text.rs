@@ -140,7 +140,10 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 #[test_case]
@@ -158,12 +161,15 @@ fn test_println_many() {
 #[test_case]
 fn test_println_output() {
     let s = "Some test string that fits on a single line";
-    println!();
-    println!("{}", s);
-    for (i, c) in s.bytes().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i]
-            .read()
-            .ascii_character;
-        assert_eq!(screen_char, c);
-    }
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        use core::fmt::Write;
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.bytes().enumerate() {
+            let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i]
+                .read()
+                .ascii_character;
+            assert_eq!(screen_char, c);
+        }
+    })
 }
