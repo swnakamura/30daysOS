@@ -1,5 +1,5 @@
 [package]
-name = "haribote2"
+name = "haribote"
 version = "0.1.0"
 authors = ["woodyZootopia <piequalsabout314159@gmail.com>"]
 edition = "2018"

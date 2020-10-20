@@ -12,15 +12,15 @@ use core::panic::PanicInfo;
 
 use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::{entry_point, BootInfo};
-use haribote2 as lib;
+use haribote as lib;
 use lib::println;
 
 entry_point!(kernel_main);
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    haribote2::init();
+    haribote::init();
 
-    use haribote2::{allocator, memory};
+    use haribote::{allocator, memory};
     use x86_64::VirtAddr;
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
@@ -89,11 +89,11 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // println!("write worked");
 
     // // VGA initialization. Doesn't work correctly.
-    // haribote2::vga_graphic::init_palette();
-    // let mut screen = haribote2::vga_graphic::Screen::new();
+    // haribote::vga_graphic::init_palette();
+    // let mut screen = haribote::vga_graphic::Screen::new();
     // screen.init();
     // let mut string_writer =
-    //     haribote2::vga_graphic::ScreenStringWriter::new(&screen, 0, 0, haribote2::vga_graphic::Color::White);
+    //     haribote::vga_graphic::ScreenStringWriter::new(&screen, 0, 0, haribote::vga_graphic::Color::White);
     // use core::fmt::Write;
     // write!(string_writer, "TEST").unwrap();
 
@@ -102,18 +102,18 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("It did not crash!");
 
-    haribote2::hlt_loop()
+    haribote::hlt_loop()
 }
 
 #[cfg(test)]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    haribote2::test_panic_handler(info)
+    haribote::test_panic_handler(info)
 }
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    haribote2::hlt_loop()
+    haribote::hlt_loop()
 }
