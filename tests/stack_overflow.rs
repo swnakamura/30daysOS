@@ -23,8 +23,10 @@ lazy_static! {
     };
 }
 
+/// In this test, use this double fault handler instead of the default one.
+/// Therefore, this test exits with `QemuExitCode::Success` when it reaches double fault.
 extern "x86-interrupt" fn test_double_fault_handler(
-    stack_frame: &mut InterruptStackFrame,
+    _stack_frame: &mut InterruptStackFrame,
     _error_code: u64,
 ) -> ! {
     serial_println!("[ok] (You reached double fault)");
@@ -48,7 +50,7 @@ pub extern "C" fn _start() -> ! {
 }
 
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
+fn panic(_info: &PanicInfo) -> ! {
     serial_println!("[ok]\n");
     exit_qemu(QemuExitCode::Success);
     loop {}

@@ -166,7 +166,7 @@ fn test_println_output() {
         use core::fmt::Write;
         writeln!(writer, "\n{}", s).expect("writeln failed");
         for (i, c) in s.bytes().enumerate() {
-            let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i]
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i]
                 .read()
                 .ascii_character;
             assert_eq!(screen_char, c);

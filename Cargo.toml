@@ -8,12 +8,14 @@ edition = "2018"
 
 [dependencies]
 rlibc = "1.0.0"
-bootloader = "0.9.9"
+bootloader = { version = "0.9.9", features = ["map_physical_memory"]}
 volatile = "0.3.0"
 spin = "0.5.2"
-x86_64 = "0.12.1"
-uart_16550 = "0.2.8"
+x86_64 = "0.12.2"
+uart_16550 = "0.2.9"
 pic8259_simple = "0.2.0"
+pc-keyboard = "0.5.1"
+linked_list_allocator = "0.8.0"
 
 [dependencies.lazy_static]
 version = "1.0"

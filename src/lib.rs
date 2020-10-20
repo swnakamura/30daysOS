@@ -2,78 +2,44 @@
 #![cfg_attr(test, no_main)]
 #![feature(abi_x86_interrupt)]
 #![feature(custom_test_frameworks)]
+#![feature(asm)]
 #![test_runner(test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![feature(alloc_error_handler)]
+#![feature(const_in_array_repeat_expressions)]
+#![feature(const_mut_refs)]
 
+extern crate alloc;
 extern crate rlibc;
 
+#[cfg(test)]
+use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 
+// pub mod vga_graphic;
+
+pub mod allocator;
+/// font files
+pub mod font;
+/// global description table
+pub mod gdt;
+/// PICs and IDTs for interruptions
 pub mod interrupts;
+/// memory management
+pub mod memory;
+/// communicating with serial port
 pub mod serial;
+/// text I/O
 pub mod vga_text;
 
-pub mod gdt {
-    use lazy_static::lazy_static;
-    use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
-    use x86_64::structures::tss::TaskStateSegment;
-    use x86_64::VirtAddr;
-
-    pub const DOUBLE_FAULT_DEFAULT_IST_INDEX: u16 = 0;
-
-    lazy_static! {
-        static ref TSS: TaskStateSegment = {
-            let mut tss = TaskStateSegment::new();
-            tss.interrupt_stack_table[DOUBLE_FAULT_DEFAULT_IST_INDEX as usize] = {
-                const STACK_SIZE: usize = 4096 * 5;
-                static mut STACK: [usize; STACK_SIZE] = [0; STACK_SIZE];
-
-                let stack_start = VirtAddr::from_ptr(unsafe { &STACK });
-                let stack_end = stack_start + STACK_SIZE;
-                stack_end
-            };
-            tss
-        };
-    }
-
-    lazy_static! {
-        static ref GDT: (GlobalDescriptorTable, Selectors) = {
-            let mut gdt = GlobalDescriptorTable::new();
-            gdt.add_entry(Descriptor::kernel_code_segment());
-            gdt.add_entry(Descriptor::tss_segment(&TSS));
-            let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());
-            let tss_selector = gdt.add_entry(Descriptor::tss_segment(&TSS));
-            (
-                gdt,
-                Selectors {
-                    code_selector,
-                    tss_selector,
-                },
-            )
-        };
-    }
-
-    struct Selectors {
-        code_selector: SegmentSelector,
-        tss_selector: SegmentSelector,
-    }
-
-    pub fn init() {
-        use x86_64::instructions::segmentation::set_cs;
-        use x86_64::instructions::tables::load_tss;
-        GDT.0.load();
-        unsafe {
-            set_cs(GDT.1.code_selector);
-            load_tss(GDT.1.tss_selector);
-        }
-    }
-} /* gdt */
-
+/// We use 0x10 as success exit code of test for Qemu.
+/// This is configured in package.metadata.bootimage.test-success-exit-code.
 pub enum QemuExitCode {
     Success = 0x10,
     Failed = 0x11,
 }
 
+/// Exit Qemu with given exit code.
 pub fn exit_qemu(exit_code: QemuExitCode) {
     use x86_64::instructions::port::Port;
 
@@ -83,6 +49,7 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     }
 }
 
+/// This function is used for unit tests.
 pub fn test_runner(tests: &[&dyn Testable]) {
     serial_println!("Running {} tests", tests.len());
     for test in tests {
@@ -91,6 +58,7 @@ pub fn test_runner(tests: &[&dyn Testable]) {
     exit_qemu(QemuExitCode::Success);
 }
 
+/// Test functions hold this trait.
 pub trait Testable {
     fn run(&self) -> ();
 }
@@ -106,13 +74,7 @@ where
     }
 }
 
-pub fn test_panic_handler(info: &PanicInfo) -> ! {
-    serial_println!("[failed]\n");
-    serial_println!("Error: {}\n", info);
-    exit_qemu(QemuExitCode::Failed);
-    loop {}
-}
-
+/// initializes kernel
 pub fn init() {
     gdt::init();
     interrupts::init_idt();
@@ -123,8 +85,11 @@ pub fn init() {
 }
 
 #[cfg(test)]
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
+entry_point!(test_kernel_main);
+
+#[cfg(test)]
+/// initializes kernel when testing
+fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
     hlt_loop()
@@ -132,10 +97,20 @@ pub extern "C" fn _start() -> ! {
 
 #[cfg(test)]
 #[panic_handler]
+/// panic handler for test.
 fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
 }
 
+/// When tests panicked, this function is called from `panic` function.
+pub fn test_panic_handler(info: &PanicInfo) -> ! {
+    serial_println!("[failed]\n");
+    serial_println!("Error: {}\n", info);
+    exit_qemu(QemuExitCode::Failed);
+    loop {}
+}
+
+/// loops `HLT` instruction
 pub fn hlt_loop() -> ! {
     loop {
         x86_64::instructions::hlt()
