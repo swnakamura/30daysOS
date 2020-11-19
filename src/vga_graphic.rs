@@ -129,7 +129,10 @@ pub fn _print(args: fmt::Arguments) {
     });
 }
 
-const CURSOR: [[u8; 16]; 16] = [
+const CURSOR_WIDTH: usize = 16;
+const CURSOR_HEIGHT: usize = 16;
+
+const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
     *b"**************..",
     *b"*OOOOOOOOOOO*...",
     *b"*OOOOOOOOOO*....",
@@ -149,8 +152,8 @@ const CURSOR: [[u8; 16]; 16] = [
 ];
 
 pub fn draw_mouse(location: &Coordinate, prev_location: &Coordinate, bc: &Color16) {
-    for y in 0..16 {
-        for x in 0..16 {
+    for y in 0..CURSOR_HEIGHT {
+        for x in 0..CURSOR_WIDTH {
             let color = *bc;
             SCREEN_BG.lock().mode.set_pixel(
                 x + prev_location.0 as usize,
