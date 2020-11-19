@@ -31,71 +31,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     boot_info
         .memory_map
         .iter()
-        .map(|x| println!("{:?}", x))
-        .for_each(drop);
+        .for_each(|x| println!("{:?}", x));
 
-    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initalization failed");
-
-    let heap_value = Box::new(61);
-    println!("heap_value at {:p}", heap_value);
-
-    let mut vec = Vec::new();
-    for i in 0..100 {
-        vec.push(i);
-    }
-    println!("vec at {:p}", vec.as_slice());
-
-    let reference_countered = Rc::new(vec![1, 2, 3]);
-    let cloned_reference = reference_countered.clone();
-    println!(
-        "current reference count is {}",
-        Rc::strong_count(&cloned_reference)
-    );
-    core::mem::drop(reference_countered);
-    println!(
-        "reference count is {} now",
-        Rc::strong_count(&cloned_reference)
-    );
-
-    let addresses = [
-        // the identity-mapped vga buffer page
-        0xb8000,
-        // some code page
-        0x201008,
-        // some stack page
-        0x0100_0020_1a10,
-        // virtual address mapped to physical address 0
-        // boot_info.physical_memory_offset,
-    ];
-
-    for &address in &addresses {
-        let virt = VirtAddr::new(address);
-        use x86_64::structures::paging::{Mapper, Page, PhysFrame, Size4KiB};
-        let phys: PhysFrame<Size4KiB> = mapper
-            .translate_page(Page::containing_address(virt))
-            .expect("translation failed");
-        println!("{:?} -> {:?}", virt, phys);
-    }
-
-    // println!("Let's crash here");
-    // let ptr = 0x20493e as *mut u32;
-    // unsafe {
-    //     let _x = *ptr;
-    // }
-    // println!("read worked");
-    // unsafe {
-    //     *ptr = 42;
-    // }
-    // println!("write worked");
-
-    // // VGA initialization. Doesn't work correctly.
-    // haribote::vga_graphic::init_palette();
-    // let mut screen = haribote::vga_graphic::Screen::new();
-    // screen.init();
-    // let mut string_writer =
-    //     haribote::vga_graphic::ScreenStringWriter::new(&screen, 0, 0, haribote::vga_graphic::Color::White);
-    // use core::fmt::Write;
-    // write!(string_writer, "TEST").unwrap();
+    haribote::vga_graphic::graphic_mode();
 
     #[cfg(test)]
     test_main();

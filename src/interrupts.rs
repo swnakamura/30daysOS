@@ -1,8 +1,10 @@
 use crate::gdt;
-use crate::{print, println};
+use crate::println;
+use crate::println_graphic;
 use lazy_static::lazy_static;
 use pic8259_simple::ChainedPics;
-use spin;
+use ps2_mouse::{Mouse, MouseState};
+use spin::Mutex;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 lazy_static! {
@@ -22,7 +24,7 @@ lazy_static! {
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(handler::timer_interrupt_handler);
         // keyboard
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(handler::keyboard_interrupt_handler);
-        // TODO: mouse
+        // mouse
         idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(handler::mouse_interrupt_handler);
         idt
     };
@@ -43,7 +45,7 @@ mod handler {
     }
 
     pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
-        // print!(".");
+        // do nothing
 
         // notify end of interrupt
         unsafe {
@@ -56,7 +58,6 @@ mod handler {
         _stack_frame: &mut InterruptStackFrame,
     ) {
         use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
-        use spin::Mutex;
         use x86_64::instructions::port::Port;
 
         lazy_static! {
@@ -72,9 +73,11 @@ mod handler {
 
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
             if let Some(key) = keyboard.process_keyevent(key_event) {
-                match key {
-                    DecodedKey::Unicode(character) => print!("{}", character),
-                    DecodedKey::RawKey(key) => print!("{:?}", key),
+                unsafe {
+                    crate::KEY_BUF.push(match key {
+                        DecodedKey::Unicode(character) => character,
+                        DecodedKey::RawKey(_) => '?',
+                    });
                 }
             }
         }
@@ -87,11 +90,13 @@ mod handler {
     }
 
     pub extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
-        // use spin::Mutex;
-        // use x86_64::instructions::port::PortReadOnly;
+        use x86_64::instructions::port::PortReadOnly;
 
-        lazy_static! {
-            // static ref MOUSE: Mutex<Mouse> = Mutex::new(Mouse::new());
+        let mut port = PortReadOnly::new(0x60);
+        let packet = unsafe { port.read() };
+        // we assume this is single-threaded as static variables are used here
+        unsafe {
+            crate::MOUSE_BUF.push(packet);
         }
 
         // notify end of interrupt
@@ -114,10 +119,50 @@ mod handler {
         println!("{:#?}", stack_frame);
         hlt_loop();
     }
+} /* handler */
+
+lazy_static! {
+    pub static ref MOUSE: Mutex<Mouse> = Mutex::new(Mouse::new());
 }
 
 pub fn init_idt() {
+    MOUSE.lock().init().unwrap();
+    MOUSE.lock().set_on_complete(on_complete);
     IDT.load();
+}
+
+#[derive(Debug)]
+struct CursorState {
+    x: isize,
+    y: isize,
+}
+
+static mut CURSOR_STATE: Mutex<CursorState> = Mutex::new(CursorState { x: 0, y: 0 });
+
+fn on_complete(mouse_state: MouseState) {
+    // println_graphic!("{:?}", mouse_state);
+    fn clip(x: isize, lb: isize, ub: isize) -> isize {
+        use core::cmp::{max, min};
+        max(min(x, ub), lb)
+    }
+    unsafe {
+        // CURSOR_STATE.lock().x += clip(mouse_state.get_x() as isize, -10, 10);
+        // CURSOR_STATE.lock().y -= clip(mouse_state.get_y() as isize, -10, 10);
+        CURSOR_STATE.lock().x += mouse_state.get_x() as isize;
+        CURSOR_STATE.lock().y -= mouse_state.get_y() as isize;
+        use crate::vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
+        let xmove = clip(CURSOR_STATE.lock().x, 0, SCREEN_WIDTH);
+        CURSOR_STATE.lock().x = xmove;
+        let ymove = clip(CURSOR_STATE.lock().y, 0, SCREEN_HEIGHT);
+        CURSOR_STATE.lock().y = ymove;
+    }
+    unsafe {
+        println_graphic!("{:?}", CURSOR_STATE);
+        use vga::colors::Color16;
+        let x = CURSOR_STATE.lock().x;
+        let y = CURSOR_STATE.lock().y;
+        crate::vga_graphic::draw_mouse(&(x, y), &Color16::Black);
+    }
 }
 
 pub const PIC_1_OFFSET: u8 = 0x20;
@@ -127,8 +172,8 @@ pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 0x08;
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
-    Keyboard = PIC_1_OFFSET + 1,
-    Mouse = PIC_2_OFFSET + 4,
+    Keyboard = PIC_1_OFFSET + 0x01,
+    Mouse = PIC_2_OFFSET + 0x04,
 }
 
 impl InterruptIndex {

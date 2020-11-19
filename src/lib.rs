@@ -8,6 +8,7 @@
 #![feature(alloc_error_handler)]
 #![feature(const_in_array_repeat_expressions)]
 #![feature(const_mut_refs)]
+#![feature(const_fn_fn_ptr_basics)]
 
 extern crate alloc;
 extern crate rlibc;
@@ -15,10 +16,13 @@ extern crate rlibc;
 #[cfg(test)]
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+use spin::Mutex;
 
 // pub mod vga_graphic;
 
 pub mod allocator;
+/// assembly specific functions
+pub mod asm;
 /// font files
 pub mod font;
 /// global description table
@@ -29,7 +33,9 @@ pub mod interrupts;
 pub mod memory;
 /// communicating with serial port
 pub mod serial;
-/// text I/O
+/// GUI
+pub mod vga_graphic;
+/// TUI
 pub mod vga_text;
 
 /// We use 0x10 as success exit code of test for Qemu.
@@ -110,9 +116,81 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     loop {}
 }
 
+pub struct FIFO<T: 'static> {
+    buf: &'static mut [T],
+    p: usize,
+    q: usize,
+    size: usize,
+    free: usize,
+}
+
+pub const KEY_BUF_SIZE: usize = 32;
+pub const MOUSE_BUF_SIZE: usize = 128;
+
+pub static mut KEY_BUF: FIFO<char> = FIFO {
+    buf: &mut ['0'; KEY_BUF_SIZE],
+    p: 0,
+    q: 0,
+    free: KEY_BUF_SIZE,
+    size: KEY_BUF_SIZE,
+};
+
+pub static mut MOUSE_BUF: FIFO<u8> = FIFO {
+    buf: &mut [0; MOUSE_BUF_SIZE],
+    p: 0,
+    q: 0,
+    free: MOUSE_BUF_SIZE,
+    size: MOUSE_BUF_SIZE,
+};
+
+impl<T: Clone> FIFO<T> {
+    pub fn push(&mut self, data: T) -> Result<(), ()> {
+        if self.free == 0 {
+            return Err(());
+        }
+        self.buf[self.p] = data;
+        self.p += 1;
+        if self.p == self.size {
+            self.p = 0;
+        }
+        self.free -= 1;
+        Ok(())
+    }
+    pub fn pop(&mut self) -> Result<T, ()> {
+        if self.free == self.size {
+            return Err(());
+        }
+        let data = self.buf[self.q].clone();
+        self.q += 1;
+        if self.q == self.size {
+            self.q = 0;
+        }
+        self.free += 1;
+        return Ok(data);
+    }
+    pub fn status(&self) -> usize {
+        return self.size - self.free;
+    }
+}
+
 /// loops `HLT` instruction
 pub fn hlt_loop() -> ! {
     loop {
-        x86_64::instructions::hlt()
+        // x86_64::instructions::hlt()
+        asm::cli();
+        // we assume this is single-threaded as static variables are used here
+        unsafe {
+            if KEY_BUF.status() != 0 {
+                let c = KEY_BUF.pop().unwrap();
+                asm::sti();
+                print_graphic!("{}", c);
+            } else if MOUSE_BUF.status() != 0 {
+                let packet = MOUSE_BUF.pop().unwrap();
+                asm::sti();
+                crate::interrupts::MOUSE.lock().process_packet(packet);
+            } else {
+                asm::stihlt();
+            }
+        }
     }
 }
