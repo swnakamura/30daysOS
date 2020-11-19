@@ -148,7 +148,17 @@ const CURSOR: [[u8; 16]; 16] = [
     *b".............***",
 ];
 
-pub fn draw_mouse(location: &Coordinate, bc: &Color16) {
+pub fn draw_mouse(location: &Coordinate, prev_location: &Coordinate, bc: &Color16) {
+    for y in 0..16 {
+        for x in 0..16 {
+            let color = *bc;
+            SCREEN_BG.lock().mode.set_pixel(
+                x + prev_location.0 as usize,
+                y + prev_location.1 as usize,
+                color,
+            );
+        }
+    }
     for y in 0..16 {
         for x in 0..16 {
             let color = match CURSOR[x][y] {

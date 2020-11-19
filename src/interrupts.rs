@@ -145,9 +145,10 @@ fn on_complete(mouse_state: MouseState) {
         use core::cmp::{max, min};
         max(min(x, ub), lb)
     }
+    // assume this is single-threaded as we use spinlock here
     unsafe {
-        // CURSOR_STATE.lock().x += clip(mouse_state.get_x() as isize, -10, 10);
-        // CURSOR_STATE.lock().y -= clip(mouse_state.get_y() as isize, -10, 10);
+        let prev_x = CURSOR_STATE.lock().x;
+        let prev_y = CURSOR_STATE.lock().y;
         CURSOR_STATE.lock().x += mouse_state.get_x() as isize;
         CURSOR_STATE.lock().y -= mouse_state.get_y() as isize;
         use crate::vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -155,13 +156,11 @@ fn on_complete(mouse_state: MouseState) {
         CURSOR_STATE.lock().x = xmove;
         let ymove = clip(CURSOR_STATE.lock().y, 0, SCREEN_HEIGHT);
         CURSOR_STATE.lock().y = ymove;
-    }
-    unsafe {
-        println_graphic!("{:?}", CURSOR_STATE);
+        // println_graphic!("{:?}", CURSOR_STATE);
         use vga::colors::Color16;
         let x = CURSOR_STATE.lock().x;
         let y = CURSOR_STATE.lock().y;
-        crate::vga_graphic::draw_mouse(&(x, y), &Color16::Black);
+        crate::vga_graphic::draw_mouse(&(x, y), &(prev_x, prev_y), &Color16::Black);
     }
 }
 
