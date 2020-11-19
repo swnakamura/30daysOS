@@ -30,12 +30,10 @@ pub fn graphic_mode() {
     crate::println_graphic!("HI");
 }
 
-type Coordinate = (isize, isize);
-
 pub struct Window<'a> {
-    top_left: Coordinate,
-    size: Coordinate,
-    column_position: Coordinate,
+    top_left: Point<isize>,
+    size: Point<isize>,
+    column_position: Point<isize>,
     column_len: isize,
     line_len: isize,
     color_code: Color16,
@@ -44,9 +42,9 @@ pub struct Window<'a> {
 
 impl<'a> Window<'a> {
     pub fn new(
-        top_left: Coordinate,
-        size: Coordinate,
-        column_position: Coordinate,
+        top_left: Point<isize>,
+        size: Point<isize>,
+        column_position: Point<isize>,
         mode: &'a Graphics640x480x16,
     ) -> Self {
         Self {
@@ -151,7 +149,7 @@ const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
     *b".............***",
 ];
 
-pub fn draw_mouse(location: &Coordinate, prev_location: &Coordinate, bc: &Color16) {
+pub fn draw_mouse(location: &Point<isize>, prev_location: &Point<isize>, bc: &Color16) {
     for y in 0..CURSOR_HEIGHT {
         for x in 0..CURSOR_WIDTH {
             let color = *bc;
@@ -162,8 +160,8 @@ pub fn draw_mouse(location: &Coordinate, prev_location: &Coordinate, bc: &Color1
             );
         }
     }
-    for y in 0..16 {
-        for x in 0..16 {
+    for y in 0..CURSOR_HEIGHT {
+        for x in 0..CURSOR_WIDTH {
             let color = match CURSOR[x][y] {
                 b'*' => Color16::Black,
                 b'O' => Color16::White,
