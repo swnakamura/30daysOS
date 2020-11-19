@@ -1,6 +1,9 @@
 # 30日でできる！OS自作入門 in Rust
 
-Rustで30日OS本を~~写経~~再現実装するぞ！
+~~Rustで30日OS本を再現実装するぞ！~~
+
+30日OS本は32bitだったりブートローダーがWindows専用だったりしていろいろと
+難しかったので、ブートローダー・メモリ仮想化周りは下記[RustでOSを書くブログ]も参考に進めています
 
 # 参考になる資料
 
@@ -14,4 +17,4 @@ Rustで30日OS本を~~写経~~再現実装するぞ！
 * https://doc.rust-lang.org/unstable-book/library-features/asm.html
 * https://doc.rust-lang.org/std/primitive.pointer.html
 
-Also, special thanks to [tokusan](https://github.com/toku-sa-n).
+Also, special thanks to [tokusan](https://github.com/toku-sa-n) for giving me kind advice.
