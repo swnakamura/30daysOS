@@ -33,6 +33,8 @@ pub mod interrupts;
 pub mod memory;
 /// communicating with serial port
 pub mod serial;
+/// utility functions
+pub mod util;
 /// GUI
 pub mod vga_graphic;
 /// TUI
