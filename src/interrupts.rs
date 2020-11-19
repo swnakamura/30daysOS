@@ -1,6 +1,7 @@
 use crate::gdt;
 use crate::println;
 use crate::println_graphic;
+use crate::util::clip;
 use lazy_static::lazy_static;
 use pic8259_simple::ChainedPics;
 use ps2_mouse::{Mouse, MouseState};
@@ -140,11 +141,6 @@ struct CursorState {
 static mut CURSOR_STATE: Mutex<CursorState> = Mutex::new(CursorState { x: 0, y: 0 });
 
 fn on_complete(mouse_state: MouseState) {
-    // println_graphic!("{:?}", mouse_state);
-    fn clip(x: isize, lb: isize, ub: isize) -> isize {
-        use core::cmp::{max, min};
-        max(min(x, ub), lb)
-    }
     // assume this is single-threaded as we use spinlock here
     unsafe {
         let prev_x = CURSOR_STATE.lock().x;
