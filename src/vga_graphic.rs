@@ -1,7 +1,10 @@
+use crate::util::clip;
+use alloc::vec::Vec;
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use vga::colors::Color16;
+use vga::drawing::Point;
 use vga::writers::{Graphics640x480x16, GraphicsWriter};
 pub const SCREEN_WIDTH: isize = 640;
 pub const SCREEN_HEIGHT: isize = 480;
@@ -13,21 +16,91 @@ lazy_static! {
         mode.clear_screen(Color16::Black);
         mode
     };
-    static ref SCREEN_BG: Mutex<Window<'static>> = Mutex::new(Window::new(
-        (0, 0),
-        (SCREEN_WIDTH, SCREEN_HEIGHT),
-        (0, 0),
-        &MODE
-    ));
+    static ref SCREEN_BG: Window<'static> =
+        Window::new((0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT), (0, 0), &MODE);
+    static ref WINDOW_CONTROL: WindowControl<'static> = {
+        let mut window_control = WindowControl::new(&MODE);
+        window_control.register(&mut SCREEN_BG);
+        window_control
+    };
 }
 
 pub fn graphic_mode() {
-    // let mut window = Window::new((80, 60), (460, 360), (0, 0), &MODE);
-    // window.draw_frame();
-    // use core::fmt::Write;
-    // write!(window, "Hello,World!").unwrap();
-    // write!(SCREEN_BG.lock(), "HI");
     crate::println_graphic!("HI");
+}
+
+struct WindowControl<'a> {
+    mode: &'a Graphics640x480x16,
+    /// pointers to the registered windows.
+    windows: Vec<&'a Window<'a>>,
+    /// map height to windows address. windows with height==-1 is not mapped.
+    height_to_windows: Vec<&'a Window<'a>>,
+    top: usize,
+}
+
+impl<'a> WindowControl<'a> {
+    pub fn new(mode: &'a Graphics640x480x16) -> Self {
+        Self {
+            mode,
+            windows: Vec::new(),
+            height_to_windows: Vec::new(),
+            top: 0,
+        }
+    }
+    /// register a new window
+    pub fn register(&mut self, new_window: &'a mut Window<'a>) {
+        new_window.height = -1; // do not show
+        self.windows.push(new_window);
+        self.height_to_windows.push(new_window);
+    }
+
+    pub fn change_window_height(&mut self, window_idx: usize, new_height: i32) {
+        let new_height = clip(new_height, -1, self.top as i32 + 1);
+        let old_height = self.windows[window_idx].height;
+        let window_to_move = self.windows[window_idx];
+        window_to_move.height = new_height;
+        if new_height < old_height {
+            if new_height > -1 {
+                for h in (new_height + 1..=old_height).rev() {
+                    let h_usize = h as usize;
+                    self.height_to_windows[h_usize] = self.height_to_windows[h_usize - 1];
+                    self.height_to_windows[h_usize].height = h;
+                }
+                self.height_to_windows[new_height as usize] = window_to_move;
+            } else {
+                // hide window
+                for h in old_height..self.top as i32 {
+                    let h_usize = h as usize;
+                    self.height_to_windows[h_usize] = self.height_to_windows[h_usize + 1];
+                    self.height_to_windows[h_usize].height = h;
+                }
+                self.top -= 1;
+            }
+        } else if old_height < new_height {
+            if old_height >= 0 {
+                for h in old_height..new_height {
+                    let h_usize = h as usize;
+                    self.height_to_windows[h_usize] = self.height_to_windows[h_usize + 1];
+                    self.height_to_windows[h_usize].height = h;
+                }
+                self.height_to_windows[new_height as usize] = window_to_move;
+            } else {
+                // unhide window
+                for h in (new_height..self.top as i32).rev() {
+                    let h_usize = h as usize;
+                    self.height_to_windows[h_usize + 1] = self.height_to_windows[h_usize];
+                    self.height_to_windows[h_usize + 1].height = h + 1;
+                }
+                self.height_to_windows[new_height as usize] = window_to_move;
+                self.top += 1;
+            }
+        }
+        self.refresh_screen();
+    }
+
+    fn refresh_screen(&mut self) {
+        todo!();
+    }
 }
 
 pub struct Window<'a> {
@@ -38,6 +111,10 @@ pub struct Window<'a> {
     line_len: isize,
     color_code: Color16,
     mode: &'a Graphics640x480x16,
+    height: i32,
+    /// 透明/色番号（color and invisible）
+    col_inv: i32,
+    flags: i32,
 }
 
 impl<'a> Window<'a> {
@@ -55,8 +132,12 @@ impl<'a> Window<'a> {
             mode,
             column_len: size.0 / 8,
             line_len: size.1 / 16,
+            col_inv: 0,
+            height: 0,
+            flags: 0,
         }
     }
+
     pub fn draw_frame(&self) {
         self.mode.draw_line(
             self.top_left,
