@@ -1,6 +1,5 @@
 use crate::gdt;
 use crate::println;
-use crate::println_graphic;
 use crate::util::clip;
 use lazy_static::lazy_static;
 use pic8259_simple::ChainedPics;
@@ -152,11 +151,10 @@ fn on_complete(mouse_state: MouseState) {
         CURSOR_STATE.lock().x = xmove;
         let ymove = clip(CURSOR_STATE.lock().y, 0, SCREEN_HEIGHT);
         CURSOR_STATE.lock().y = ymove;
-        // println_graphic!("{:?}", CURSOR_STATE);
         use vga::colors::Color16;
         let x = CURSOR_STATE.lock().x;
         let y = CURSOR_STATE.lock().y;
-        crate::vga_graphic::draw_mouse(&(x, y), &(prev_x, prev_y), &Color16::Black);
+        // crate::vga_graphic::draw_mouse(&(x, y), &(prev_x, prev_y), &Color16::Black);
     }
 }
 

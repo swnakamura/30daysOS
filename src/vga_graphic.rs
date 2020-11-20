@@ -16,11 +16,8 @@ lazy_static! {
         mode.clear_screen(Color16::Black);
         mode
     };
-    static ref SCREEN_BG: Window<'static> =
-        Window::new((0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT), (0, 0), &MODE);
     static ref WINDOW_CONTROL: WindowControl<'static> = {
         let mut window_control = WindowControl::new(&MODE);
-        window_control.register(&mut SCREEN_BG);
         window_control
     };
 }
@@ -32,9 +29,9 @@ pub fn graphic_mode() {
 struct WindowControl<'a> {
     mode: &'a Graphics640x480x16,
     /// pointers to the registered windows.
-    windows: Vec<&'a Window<'a>>,
-    /// map height to windows address. windows with height==-1 is not mapped.
-    height_to_windows: Vec<&'a Window<'a>>,
+    windows: Vec<&'a mut Window<'a>>,
+    /// map height to windows index. windows with height==-1 is not mapped.
+    height_to_windows_idx: Vec<usize>,
     top: usize,
 }
 
@@ -43,7 +40,7 @@ impl<'a> WindowControl<'a> {
         Self {
             mode,
             windows: Vec::new(),
-            height_to_windows: Vec::new(),
+            height_to_windows_idx: Vec::new(),
             top: 0,
         }
     }
@@ -51,28 +48,28 @@ impl<'a> WindowControl<'a> {
     pub fn register(&mut self, new_window: &'a mut Window<'a>) {
         new_window.height = -1; // do not show
         self.windows.push(new_window);
-        self.height_to_windows.push(new_window);
     }
 
-    pub fn change_window_height(&mut self, window_idx: usize, new_height: i32) {
+    pub fn change_window_height(&mut self, idx_to_move: usize, new_height: i32) {
         let new_height = clip(new_height, -1, self.top as i32 + 1);
-        let old_height = self.windows[window_idx].height;
-        let window_to_move = self.windows[window_idx];
-        window_to_move.height = new_height;
+        let old_height = self.windows[idx_to_move].height;
+        // let mut window_to_move = &mut self.windows[idx_to_move];
+        // window_to_move.height = new_height;
+        self.windows[idx_to_move].height = new_height;
         if new_height < old_height {
             if new_height > -1 {
                 for h in (new_height + 1..=old_height).rev() {
                     let h_usize = h as usize;
-                    self.height_to_windows[h_usize] = self.height_to_windows[h_usize - 1];
-                    self.height_to_windows[h_usize].height = h;
+                    self.height_to_windows_idx[h_usize] = self.height_to_windows_idx[h_usize - 1];
+                    self.windows[self.height_to_windows_idx[h_usize]].height = h;
                 }
-                self.height_to_windows[new_height as usize] = window_to_move;
+                self.height_to_windows_idx[new_height as usize] = idx_to_move;
             } else {
                 // hide window
                 for h in old_height..self.top as i32 {
                     let h_usize = h as usize;
-                    self.height_to_windows[h_usize] = self.height_to_windows[h_usize + 1];
-                    self.height_to_windows[h_usize].height = h;
+                    self.height_to_windows_idx[h_usize] = self.height_to_windows_idx[h_usize + 1];
+                    self.windows[self.height_to_windows_idx[h_usize]].height = h;
                 }
                 self.top -= 1;
             }
@@ -80,18 +77,18 @@ impl<'a> WindowControl<'a> {
             if old_height >= 0 {
                 for h in old_height..new_height {
                     let h_usize = h as usize;
-                    self.height_to_windows[h_usize] = self.height_to_windows[h_usize + 1];
-                    self.height_to_windows[h_usize].height = h;
+                    self.height_to_windows_idx[h_usize] = self.height_to_windows_idx[h_usize + 1];
+                    self.windows[self.height_to_windows_idx[h_usize]].height = h;
                 }
-                self.height_to_windows[new_height as usize] = window_to_move;
+                self.height_to_windows_idx[new_height as usize] = idx_to_move;
             } else {
                 // unhide window
                 for h in (new_height..self.top as i32).rev() {
                     let h_usize = h as usize;
-                    self.height_to_windows[h_usize + 1] = self.height_to_windows[h_usize];
-                    self.height_to_windows[h_usize + 1].height = h + 1;
+                    self.height_to_windows_idx[h_usize + 1] = self.height_to_windows_idx[h_usize];
+                    self.windows[self.height_to_windows_idx[h_usize + 1]].height = h + 1;
                 }
-                self.height_to_windows[new_height as usize] = window_to_move;
+                self.height_to_windows_idx[new_height as usize] = idx_to_move;
                 self.top += 1;
             }
         }
@@ -203,9 +200,9 @@ macro_rules! println_graphic {
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     use x86_64::instructions::interrupts;
-    interrupts::without_interrupts(|| {
-        SCREEN_BG.lock().write_fmt(args).unwrap();
-    });
+    // interrupts::without_interrupts(|| {
+    //     SCREEN_BG.write_fmt(args).unwrap();
+    // });
 }
 
 const CURSOR_WIDTH: usize = 16;
@@ -230,11 +227,16 @@ const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
     *b".............***",
 ];
 
-pub fn draw_mouse(location: &Point<isize>, prev_location: &Point<isize>, bc: &Color16) {
+pub fn draw_mouse(
+    window: &mut Window,
+    location: &Point<isize>,
+    prev_location: &Point<isize>,
+    bc: &Color16,
+) {
     for y in 0..CURSOR_HEIGHT {
         for x in 0..CURSOR_WIDTH {
             let color = *bc;
-            SCREEN_BG.lock().mode.set_pixel(
+            window.mode.set_pixel(
                 x + prev_location.0 as usize,
                 y + prev_location.1 as usize,
                 color,
@@ -248,11 +250,9 @@ pub fn draw_mouse(location: &Point<isize>, prev_location: &Point<isize>, bc: &Co
                 b'O' => Color16::White,
                 _ => *bc,
             };
-            SCREEN_BG.lock().mode.set_pixel(
-                x + location.0 as usize,
-                y + location.1 as usize,
-                color,
-            );
+            window
+                .mode
+                .set_pixel(x + location.0 as usize, y + location.1 as usize, color);
         }
     }
 }
