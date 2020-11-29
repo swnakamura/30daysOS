@@ -5,9 +5,9 @@
 
 use core::panic::PanicInfo;
 
-use haribote2::gdt;
-use haribote2::serial_println;
-use haribote2::{exit_qemu, QemuExitCode};
+use haribote::gdt;
+use haribote::serial_println;
+use haribote::{exit_qemu, QemuExitCode};
 use lazy_static::lazy_static;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
@@ -40,7 +40,7 @@ fn init_test_idt() {
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    haribote2::gdt::init();
+    haribote::gdt::init();
     init_test_idt();
 
     stack_overflow();

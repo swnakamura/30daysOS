@@ -117,7 +117,7 @@ mod handler {
         println!("Accessed address: {:?}", Cr2::read());
         println!("Error code: {:?}", error_code);
         println!("{:#?}", stack_frame);
-        hlt_loop();
+        hlt_loop(None);
     }
 } /* handler */
 
@@ -151,7 +151,6 @@ fn on_complete(mouse_state: MouseState) {
         CURSOR_STATE.lock().x = xmove;
         let ymove = clip(CURSOR_STATE.lock().y, 0, SCREEN_HEIGHT);
         CURSOR_STATE.lock().y = ymove;
-        use vga::colors::Color16;
         let x = CURSOR_STATE.lock().x;
         let y = CURSOR_STATE.lock().y;
         // crate::vga_graphic::draw_mouse(&(x, y), &(prev_x, prev_y), &Color16::Black);

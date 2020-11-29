@@ -16,12 +16,11 @@ extern crate rlibc;
 #[cfg(test)]
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use spin::Mutex;
 
 // pub mod vga_graphic;
 
 pub mod allocator;
-/// assembly specific functions
+/// assembly-specific functions
 pub mod asm;
 /// font files
 pub mod font;
@@ -100,7 +99,7 @@ entry_point!(test_kernel_main);
 fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
-    hlt_loop()
+    hlt_loop(None)
 }
 
 #[cfg(test)]
@@ -175,23 +174,54 @@ impl<T: Clone> FIFO<T> {
     }
 }
 
+use vga_graphic::WindowControl;
+
 /// loops `HLT` instruction
-pub fn hlt_loop() -> ! {
-    loop {
-        // x86_64::instructions::hlt()
-        asm::cli();
-        // we assume this is single-threaded as static variables are used here
-        unsafe {
-            if KEY_BUF.status() != 0 {
-                let c = KEY_BUF.pop().unwrap();
-                asm::sti();
-                print_graphic!("{}", c);
-            } else if MOUSE_BUF.status() != 0 {
-                let packet = MOUSE_BUF.pop().unwrap();
-                asm::sti();
-                crate::interrupts::MOUSE.lock().process_packet(packet);
-            } else {
-                asm::stihlt();
+pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
+    if let Some(mut window_control) = window_control {
+        use vga_graphic::*;
+        let window_id = window_control.register(Window::new((30, 30), (300, 300), (0, 0)));
+        window_control.change_window_height(window_id, 1);
+        use core::fmt::Write;
+        write!(window_control.windows[window_id], "Hello world!").unwrap();
+        loop {
+            asm::cli();
+            // we assume this is single-threaded as static variables are used here
+            unsafe {
+                if KEY_BUF.status() != 0 {
+                    let c = KEY_BUF.pop().unwrap();
+                    asm::sti();
+                    use crate::alloc::string::ToString;
+                    window_control.windows[window_id]
+                        .write_str(c.to_string().as_str())
+                        .unwrap();
+                    window_control.refresh_screen();
+                } else if MOUSE_BUF.status() != 0 {
+                    let packet = MOUSE_BUF.pop().unwrap();
+                    asm::sti();
+                    crate::interrupts::MOUSE.lock().process_packet(packet);
+                    window_control.refresh_screen();
+                } else {
+                    asm::stihlt();
+                }
+            }
+        }
+    } else {
+        loop {
+            // x86_64::instructions::hlt()
+            asm::cli();
+            // we assume this is single-threaded as static variables are used here
+            unsafe {
+                if KEY_BUF.status() != 0 {
+                    let c = KEY_BUF.pop().unwrap();
+                    asm::sti();
+                } else if MOUSE_BUF.status() != 0 {
+                    let packet = MOUSE_BUF.pop().unwrap();
+                    asm::sti();
+                    crate::interrupts::MOUSE.lock().process_packet(packet);
+                } else {
+                    asm::stihlt();
+                }
             }
         }
     }

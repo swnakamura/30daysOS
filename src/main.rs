@@ -20,27 +20,29 @@ entry_point!(kernel_main);
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     haribote::init();
 
-    use haribote::{allocator, memory};
+    use haribote::allocator;
+    use haribote::memory;
     use x86_64::VirtAddr;
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_allocator =
         unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
     boot_info
         .memory_map
         .iter()
         .for_each(|x| println!("{:?}", x));
 
-    haribote::vga_graphic::graphic_mode();
+    let window_control = haribote::vga_graphic::graphic_mode();
 
     #[cfg(test)]
     test_main();
 
     println!("It did not crash!");
 
-    haribote::hlt_loop()
+    haribote::hlt_loop(Some(window_control));
 }
 
 #[cfg(test)]
@@ -53,5 +55,5 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    haribote::hlt_loop()
+    haribote::hlt_loop(None);
 }

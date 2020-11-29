@@ -2,7 +2,6 @@ use crate::util::clip;
 use alloc::vec::Vec;
 use core::fmt;
 use lazy_static::lazy_static;
-use spin::Mutex;
 use vga::colors::Color16;
 use vga::drawing::Point;
 use vga::writers::{Graphics640x480x16, GraphicsWriter};
@@ -10,29 +9,32 @@ pub const SCREEN_WIDTH: isize = 640;
 pub const SCREEN_HEIGHT: isize = 480;
 
 lazy_static! {
-    static ref MODE: Graphics640x480x16 = {
+    pub static ref MODE: Graphics640x480x16 = {
         let mode = Graphics640x480x16::new();
         mode.set_mode();
         mode.clear_screen(Color16::Black);
         mode
     };
-    static ref WINDOW_CONTROL: WindowControl<'static> = {
-        let mut window_control = WindowControl::new(&MODE);
+}
+
+pub fn graphic_mode<'a>() -> WindowControl<'a> {
+    let window_control: WindowControl<'a> = {
+        let window_control = WindowControl::new(&MODE);
         window_control
     };
+    window_control
+        .mode
+        .draw_character(10, 0, 's', Color16::White);
+    window_control
 }
 
-pub fn graphic_mode() {
-    crate::println_graphic!("HI");
-}
-
-struct WindowControl<'a> {
-    mode: &'a Graphics640x480x16,
+pub struct WindowControl<'a> {
+    pub mode: &'a Graphics640x480x16,
     /// pointers to the registered windows.
-    windows: Vec<&'a mut Window<'a>>,
+    pub windows: Vec<Window<'a>>,
     /// map height to windows index. windows with height==-1 is not mapped.
     height_to_windows_idx: Vec<usize>,
-    top: usize,
+    top: isize,
 }
 
 impl<'a> WindowControl<'a> {
@@ -41,20 +43,21 @@ impl<'a> WindowControl<'a> {
             mode,
             windows: Vec::new(),
             height_to_windows_idx: Vec::new(),
-            top: 0,
+            top: -1,
         }
     }
     /// register a new window
-    pub fn register(&mut self, new_window: &'a mut Window<'a>) {
-        new_window.height = -1; // do not show
+    pub fn register(&mut self, mut new_window: Window<'a>) -> usize {
+        new_window.height = -1; // do not show by default
+        new_window.mode = Some(self.mode);
         self.windows.push(new_window);
+        self.height_to_windows_idx.push(core::usize::MAX);
+        return self.windows.len() - 1;
     }
 
     pub fn change_window_height(&mut self, idx_to_move: usize, new_height: i32) {
         let new_height = clip(new_height, -1, self.top as i32 + 1);
         let old_height = self.windows[idx_to_move].height;
-        // let mut window_to_move = &mut self.windows[idx_to_move];
-        // window_to_move.height = new_height;
         self.windows[idx_to_move].height = new_height;
         if new_height < old_height {
             if new_height > -1 {
@@ -95,8 +98,20 @@ impl<'a> WindowControl<'a> {
         self.refresh_screen();
     }
 
-    fn refresh_screen(&mut self) {
-        todo!();
+    pub fn refresh_screen(&mut self) {
+        for h in 0..self.top {
+            let window = &self.windows[self.height_to_windows_idx[h as usize + 1]];
+            let buf = &window.buf;
+            for (line_num, line) in buf.iter().enumerate() {
+                for (row_num, row) in line.iter().enumerate() {
+                    self.mode.set_pixel(
+                        (window.top_left.0 + row_num as isize) as usize,
+                        (window.top_left.1 + line_num as isize) as usize,
+                        *row,
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -106,66 +121,48 @@ pub struct Window<'a> {
     column_position: Point<isize>,
     column_len: isize,
     line_len: isize,
+    buf: Vec<Vec<Color16>>,
     color_code: Color16,
-    mode: &'a Graphics640x480x16,
+    // mode: &'a Graphics640x480x16,
     height: i32,
     /// 透明/色番号（color and invisible）
     col_inv: i32,
     flags: i32,
+    mode: Option<&'a dyn GraphicsWriter<Color16>>,
 }
 
 impl<'a> Window<'a> {
-    pub fn new(
-        top_left: Point<isize>,
-        size: Point<isize>,
-        column_position: Point<isize>,
-        mode: &'a Graphics640x480x16,
-    ) -> Self {
+    pub fn new(top_left: Point<isize>, size: Point<isize>, column_position: Point<isize>) -> Self {
         Self {
             color_code: Color16::White,
             top_left,
             size,
+            buf: Vec::new(),
             column_position,
-            mode,
             column_len: size.0 / 8,
             line_len: size.1 / 16,
             col_inv: 0,
             height: 0,
             flags: 0,
+            mode: None,
         }
     }
-
-    pub fn draw_frame(&self) {
-        self.mode.draw_line(
-            self.top_left,
-            (self.top_left.0 + self.size.0, self.top_left.1),
-            Color16::White,
-        );
-        self.mode.draw_line(
-            self.top_left,
-            (self.top_left.0, self.top_left.1 + self.size.1),
-            Color16::White,
-        );
-        self.mode.draw_line(
-            (self.top_left.0, self.top_left.1 + self.size.1),
-            (self.top_left.0 + self.size.0, self.top_left.1 + self.size.1),
-            Color16::White,
-        );
-        self.mode.draw_line(
-            (self.top_left.0 + self.size.0, self.top_left.1),
-            (self.top_left.0 + self.size.0, self.top_left.1 + self.size.1),
-            Color16::White,
-        );
-    }
+    // pub fn print(&self, args: &str) {
+    //     use core::fmt::Write;
+    //     use x86_64::instructions::interrupts;
+    //     interrupts::without_interrupts(|| {
+    //         self.write_fmt(args).unwrap();
+    //     })
+    // }
 }
 
-impl fmt::Write for Window<'_> {
+impl<'a> fmt::Write for Window<'a> {
     fn write_str(&mut self, string: &str) -> Result<(), core::fmt::Error> {
         string.chars().for_each(|c| {
             if c == '\n' {
                 self.column_position = (0, self.column_position.1 + 10);
             } else {
-                self.mode.draw_character(
+                self.mode.unwrap().draw_character(
                     (self.top_left.0 + self.column_position.0) as usize,
                     (self.top_left.1 + self.column_position.1) as usize,
                     c,
@@ -178,32 +175,32 @@ impl fmt::Write for Window<'_> {
                 self.column_position.1 += 10;
             }
             if self.column_position.1 > self.size.1 {
-                self.mode.clear_screen(Color16::Black);
+                self.mode.unwrap().clear_screen(Color16::Black);
                 self.column_position = (0, 0);
             }
         });
         Ok(())
     }
 }
-#[macro_export]
-macro_rules! print_graphic {
-        ($($arg:tt)*) => ($crate::vga_graphic::_print(format_args!($($arg)*)));
-    }
+// #[macro_export]
+// macro_rules! print_graphic {
+//         ($($arg:tt)*) => ($crate::vga_graphic::_print(format_args!($($arg)*)));
+//     }
 
-#[macro_export]
-macro_rules! println_graphic {
-        () => (print!("\n"));
-        ($($arg:tt)*) => ($crate::print_graphic!("{}\n", format_args!($($arg)*)));
-    }
+// #[macro_export]
+// macro_rules! println_graphic {
+//         () => (print!("\n"));
+//         ($($arg:tt)*) => ($crate::print_graphic!("{}\n", format_args!($($arg)*)));
+//     }
 
-#[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
-    use core::fmt::Write;
-    use x86_64::instructions::interrupts;
-    // interrupts::without_interrupts(|| {
-    //     SCREEN_BG.write_fmt(args).unwrap();
-    // });
-}
+// #[doc(hidden)]
+// pub fn _print(args: fmt::Arguments) {
+//     use core::fmt::Write;
+//     use x86_64::instructions::interrupts;
+//     interrupts::without_interrupts(|| {
+//         SCREEN_BG.write_fmt(args).unwrap();
+//     });
+// }
 
 const CURSOR_WIDTH: usize = 16;
 const CURSOR_HEIGHT: usize = 16;
@@ -236,7 +233,7 @@ pub fn draw_mouse(
     for y in 0..CURSOR_HEIGHT {
         for x in 0..CURSOR_WIDTH {
             let color = *bc;
-            window.mode.set_pixel(
+            window.mode.unwrap().set_pixel(
                 x + prev_location.0 as usize,
                 y + prev_location.1 as usize,
                 color,
@@ -252,6 +249,7 @@ pub fn draw_mouse(
             };
             window
                 .mode
+                .unwrap()
                 .set_pixel(x + location.0 as usize, y + location.1 as usize, color);
         }
     }

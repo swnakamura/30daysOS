@@ -4,8 +4,8 @@
 
 use core::panic::PanicInfo;
 
-use haribote2::serial_println;
-use haribote2::{exit_qemu, QemuExitCode};
+use haribote::serial_println;
+use haribote::{exit_qemu, QemuExitCode};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {

@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![test_runner(haribote2::test_runner)]
+#![test_runner(haribote::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
@@ -12,7 +12,7 @@ use core::panic::PanicInfo;
 entry_point!(main);
 
 pub fn main(boot_info: &'static BootInfo) -> ! {
-    use haribote2::{allocator, memory};
+    use haribote::{allocator, memory};
     use x86_64::VirtAddr;
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
@@ -26,7 +26,7 @@ pub fn main(boot_info: &'static BootInfo) -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    haribote2::test_panic_handler(info)
+    haribote::test_panic_handler(info)
 }
 
 use alloc::{boxed::Box, vec::Vec};
@@ -50,7 +50,7 @@ fn large_vec() {
 
 #[test_case]
 fn many_boxes() {
-    use haribote2::allocator::HEAP_SIZE;
+    use haribote::allocator::HEAP_SIZE;
     let long_living_item = Box::new(42);
     for i in 0..HEAP_SIZE {
         let x = Box::new(i);
