@@ -10,7 +10,6 @@ extern crate rlibc;
 
 use core::panic::PanicInfo;
 
-use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::{entry_point, BootInfo};
 use haribote as lib;
 use lib::println;

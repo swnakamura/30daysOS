@@ -99,6 +99,7 @@ impl<'a> WindowControl<'a> {
     }
 
     pub fn refresh_screen(&mut self) {
+        // self.mode.clear_screen(Color16::Black);
         for h in 0..self.top {
             let window = &self.windows[self.height_to_windows_idx[h as usize + 1]];
             let buf = &window.buf;

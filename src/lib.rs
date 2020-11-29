@@ -214,9 +214,11 @@ pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
             unsafe {
                 if KEY_BUF.status() != 0 {
                     let c = KEY_BUF.pop().unwrap();
+                    println!("{}", c);
                     asm::sti();
                 } else if MOUSE_BUF.status() != 0 {
                     let packet = MOUSE_BUF.pop().unwrap();
+                    println!("{}", packet);
                     asm::sti();
                     crate::interrupts::MOUSE.lock().process_packet(packet);
                 } else {
