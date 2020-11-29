@@ -129,7 +129,7 @@ lazy_static! {
 
 pub fn init_idt() {
     MOUSE.lock().init().unwrap();
-    MOUSE.lock().set_on_complete(on_complete);
+    MOUSE.lock().set_on_complete(on_mouse_process_complete);
     IDT.load();
 }
 
@@ -141,7 +141,7 @@ struct CursorState {
 
 static mut CURSOR_STATE: Mutex<CursorState> = Mutex::new(CursorState { x: 0, y: 0 });
 
-fn on_complete(mouse_state: MouseState) {
+fn on_mouse_process_complete(mouse_state: MouseState) {
     // assume this is single-threaded as we use spinlock here
     unsafe {
         let prev_x = CURSOR_STATE.lock().x;
@@ -155,7 +155,8 @@ fn on_complete(mouse_state: MouseState) {
         CURSOR_STATE.lock().y = ymove;
         let x = CURSOR_STATE.lock().x;
         let y = CURSOR_STATE.lock().y;
-        // crate::vga_graphic::draw_mouse(&(x, y), &(prev_x, prev_y), &Color16::Black);
+        use vga::colors::Color16;
+        crate::vga_graphic::draw_mouse(&(x, y), &(prev_x, prev_y), &Color16::Black);
     }
 }
 

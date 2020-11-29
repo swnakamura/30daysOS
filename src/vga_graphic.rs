@@ -28,31 +28,48 @@ pub fn graphic_mode<'a>() -> WindowControl<'a> {
     window_control
 }
 
+const MAX_WIN_NUM: usize = 256;
+
+bitflags! {
+    struct WinFlag: u32 {
+        const USE = 0b00000001;
+    }
+}
+
 pub struct WindowControl<'a> {
     pub mode: &'a Graphics640x480x16,
     /// pointers to the registered windows.
     pub windows: Vec<Window<'a>>,
     /// map height to windows index. windows with height==-1 is not mapped.
-    height_to_windows_idx: Vec<usize>,
+    height_to_windows_idx: [usize; MAX_WIN_NUM],
     top: isize,
 }
 
 impl<'a> WindowControl<'a> {
     pub fn new(mode: &'a Graphics640x480x16) -> Self {
+        let mut windows = Vec::new();
+        for _ in 0..MAX_WIN_NUM {
+            windows.push(Window::new((30, 30), (300, 300), (0, 0)));
+        }
         Self {
             mode,
-            windows: Vec::new(),
-            height_to_windows_idx: Vec::new(),
+            windows,
+            height_to_windows_idx: [0; MAX_WIN_NUM],
             top: -1,
         }
     }
     /// register a new window
-    pub fn register(&mut self, mut new_window: Window<'a>) -> usize {
-        new_window.height = -1; // do not show by default
-        new_window.mode = Some(self.mode);
-        self.windows.push(new_window);
-        self.height_to_windows_idx.push(core::usize::MAX);
-        return self.windows.len() - 1;
+    pub fn allocate(&mut self) -> usize {
+        for i in 0..MAX_WIN_NUM {
+            if !self.windows[i].flags.contains(WinFlag::USE) {
+                let win = &mut self.windows[i];
+                win.flags = WinFlag::USE;
+                win.height = -1;
+                win.mode = Some(self.mode);
+                return i;
+            }
+        }
+        return 0;
     }
 
     pub fn change_window_height(&mut self, idx_to_move: usize, new_height: i32) {
@@ -98,6 +115,13 @@ impl<'a> WindowControl<'a> {
         self.refresh_screen();
     }
 
+    pub fn free(&mut self, window_id: usize) {
+        if self.windows[window_id].height >= 0 {
+            self.change_window_height(window_id, -1);
+        }
+        unimplemented!()
+    }
+
     pub fn refresh_screen(&mut self) {
         // self.mode.clear_screen(Color16::Black);
         for h in 0..self.top {
@@ -120,15 +144,14 @@ pub struct Window<'a> {
     top_left: Point<isize>,
     size: Point<isize>,
     column_position: Point<isize>,
-    column_len: isize,
-    line_len: isize,
+    // column_len: isize,
+    // line_len: isize,
     buf: Vec<Vec<Color16>>,
     color_code: Color16,
-    // mode: &'a Graphics640x480x16,
     height: i32,
     /// 透明/色番号（color and invisible）
-    col_inv: i32,
-    flags: i32,
+    // col_inv: i32,
+    flags: WinFlag,
     mode: Option<&'a dyn GraphicsWriter<Color16>>,
 }
 
@@ -140,21 +163,14 @@ impl<'a> Window<'a> {
             size,
             buf: Vec::new(),
             column_position,
-            column_len: size.0 / 8,
-            line_len: size.1 / 16,
-            col_inv: 0,
+            // column_len: size.0 / 8,
+            // line_len: size.1 / 16,
+            // col_inv: 0,
             height: 0,
-            flags: 0,
+            flags: WinFlag::empty(),
             mode: None,
         }
     }
-    // pub fn print(&self, args: &str) {
-    //     use core::fmt::Write;
-    //     use x86_64::instructions::interrupts;
-    //     interrupts::without_interrupts(|| {
-    //         self.write_fmt(args).unwrap();
-    //     })
-    // }
 }
 
 impl<'a> fmt::Write for Window<'a> {
@@ -167,7 +183,7 @@ impl<'a> fmt::Write for Window<'a> {
                     (self.top_left.0 + self.column_position.0) as usize,
                     (self.top_left.1 + self.column_position.1) as usize,
                     c,
-                    Color16::White,
+                    self.color_code,
                 );
             }
             self.column_position.0 += 8;
@@ -226,7 +242,7 @@ const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
 ];
 
 pub fn draw_mouse(
-    window: &mut Window,
+    // window: &mut Window,
     location: &Point<isize>,
     prev_location: &Point<isize>,
     bc: &Color16,
@@ -234,7 +250,7 @@ pub fn draw_mouse(
     for y in 0..CURSOR_HEIGHT {
         for x in 0..CURSOR_WIDTH {
             let color = *bc;
-            window.mode.unwrap().set_pixel(
+            MODE.set_pixel(
                 x + prev_location.0 as usize,
                 y + prev_location.1 as usize,
                 color,
@@ -248,10 +264,7 @@ pub fn draw_mouse(
                 b'O' => Color16::White,
                 _ => *bc,
             };
-            window
-                .mode
-                .unwrap()
-                .set_pixel(x + location.0 as usize, y + location.1 as usize, color);
+            MODE.set_pixel(x + location.0 as usize, y + location.1 as usize, color);
         }
     }
 }

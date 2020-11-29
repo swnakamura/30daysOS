@@ -10,6 +10,9 @@
 #![feature(const_mut_refs)]
 #![feature(const_fn_fn_ptr_basics)]
 
+#[macro_use]
+extern crate bitflags;
+
 extern crate alloc;
 extern crate rlibc;
 
@@ -178,12 +181,11 @@ use vga_graphic::WindowControl;
 
 /// loops `HLT` instruction
 pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
+    use core::fmt::Write;
     if let Some(mut window_control) = window_control {
-        use vga_graphic::*;
-        let window_id = window_control.register(Window::new((30, 30), (300, 300), (0, 0)));
-        window_control.change_window_height(window_id, 1);
-        use core::fmt::Write;
+        let window_id = window_control.allocate();
         write!(window_control.windows[window_id], "Hello world!").unwrap();
+        window_control.change_window_height(window_id, 1);
         loop {
             asm::cli();
             // we assume this is single-threaded as static variables are used here
