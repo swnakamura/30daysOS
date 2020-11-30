@@ -180,7 +180,7 @@ impl<'a> Window<'a> {
     }
     fn create_buffer(size: Point<isize>) -> Vec<Vec<Color16>> {
         use alloc::vec;
-        vec![vec![Color16::Black; size.1 as usize]; size.0 as usize]
+        vec![vec![Color16::Black; size.0 as usize]; size.1 as usize]
     }
 
     pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color16) {
