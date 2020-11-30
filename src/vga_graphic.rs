@@ -162,8 +162,6 @@ impl<'a> Window<'a> {
             size,
             buf: Self::create_buffer(size, Color16::Black),
             column_position,
-            // column_len: size.0 / 8,
-            // line_len: size.1 / 16,
             // col_inv: 0,
             height: 0,
             flag: WinFlag::empty(),
