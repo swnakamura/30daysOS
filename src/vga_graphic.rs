@@ -188,7 +188,7 @@ impl<'a> Window<'a> {
         for i in 0..FONT_HEIGHT {
             let d = font[i as usize];
             for bit in 0..FONT_WIDTH {
-                if d & 1 << (FONT_WIDTH - bit) != 0 {
+                if d & 1 << (FONT_WIDTH - bit - 1) != 0 {
                     self.bufwrite_pixel(((coord.1 + i), (coord.0 + bit)), color);
                 }
             }
