@@ -23,9 +23,6 @@ pub fn graphic_mode<'a>() -> WindowControl<'a> {
         window_control
     };
     window_control
-        .mode
-        .draw_character(10, 0, 's', Color16::White);
-    window_control
 }
 
 const MAX_WIN_NUM: usize = 256;
@@ -47,9 +44,9 @@ pub struct WindowControl<'a> {
 
 impl<'a> WindowControl<'a> {
     pub fn new(mode: &'a Graphics640x480x16) -> Self {
-        let mut windows = Vec::new();
+        let mut windows = Vec::with_capacity(MAX_WIN_NUM);
         for _ in 0..MAX_WIN_NUM {
-            windows.push(Window::new((30, 30), (300, 300), (0, 0)));
+            windows.push(Window::new((0, 0), (0, 0), (0, 0)));
         }
         Self {
             mode,
@@ -61,9 +58,9 @@ impl<'a> WindowControl<'a> {
     /// register a new window
     pub fn allocate(&mut self) -> usize {
         for i in 0..MAX_WIN_NUM {
-            if !self.windows[i].flags.contains(WinFlag::USE) {
+            if !self.windows[i].flag.contains(WinFlag::USE) {
                 let win = &mut self.windows[i];
-                win.flags = WinFlag::USE;
+                win.flag = WinFlag::USE;
                 win.height = -1;
                 win.mode = Some(self.mode);
                 return i;
@@ -124,12 +121,12 @@ impl<'a> WindowControl<'a> {
 
     pub fn refresh_screen(&mut self) {
         // self.mode.clear_screen(Color16::Black);
-        for h in 0..self.top {
-            let window = &self.windows[self.height_to_windows_idx[h as usize + 1]];
+        for h in 0..=self.top {
+            let window = &self.windows[self.height_to_windows_idx[h as usize]];
             let buf = &window.buf;
             for (line_num, line) in buf.iter().enumerate() {
                 for (row_num, row) in line.iter().enumerate() {
-                    self.mode.set_pixel(
+                    MODE.set_pixel(
                         (window.top_left.0 + row_num as isize) as usize,
                         (window.top_left.1 + line_num as isize) as usize,
                         *row,
@@ -147,51 +144,84 @@ pub struct Window<'a> {
     // column_len: isize,
     // line_len: isize,
     buf: Vec<Vec<Color16>>,
-    color_code: Color16,
+    foreground: Color16,
+    background: Color16,
     height: i32,
     /// 透明/色番号（color and invisible）
     // col_inv: i32,
-    flags: WinFlag,
+    flag: WinFlag,
     mode: Option<&'a dyn GraphicsWriter<Color16>>,
 }
 
 impl<'a> Window<'a> {
     pub fn new(top_left: Point<isize>, size: Point<isize>, column_position: Point<isize>) -> Self {
         Self {
-            color_code: Color16::White,
+            foreground: Color16::White,
+            background: Color16::Black,
             top_left,
             size,
-            buf: Vec::new(),
+            buf: Self::create_buffer(size),
             column_position,
             // column_len: size.0 / 8,
             // line_len: size.1 / 16,
             // col_inv: 0,
             height: 0,
-            flags: WinFlag::empty(),
+            flag: WinFlag::empty(),
             mode: None,
         }
     }
+    pub fn adjust(&mut self, new_size: Point<isize>) {
+        self.size = new_size;
+        self.buf = Self::create_buffer(new_size);
+    }
+    pub fn change_color(&mut self, foreground: Color16, background: Color16) {
+        self.foreground = foreground;
+        self.background = background;
+    }
+    fn create_buffer(size: Point<isize>) -> Vec<Vec<Color16>> {
+        use alloc::vec;
+        vec![vec![Color16::Black; size.1 as usize]; size.0 as usize]
+    }
+
+    pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color16) {
+        let font = FONT_DATA[chara as usize];
+        for i in 0..FONT_HEIGHT {
+            let d = font[i as usize];
+            for bit in 0..FONT_WIDTH {
+                if d & 1 << (FONT_WIDTH - bit) != 0 {
+                    self.bufwrite_pixel(((coord.1 + i), (coord.0 + bit)), color);
+                }
+            }
+        }
+    }
+    fn bufwrite_pixel(&mut self, coord: Point<isize>, color: Color16) {
+        self.buf[coord.0 as usize][coord.1 as usize] = color;
+    }
 }
+
+const FONT_WIDTH: isize = 8;
+const FONT_HEIGHT: isize = 16;
+type Font = [[u16; 16]; 256];
+const FONT_DATA: Font = include!("../build/font.in");
 
 impl<'a> fmt::Write for Window<'a> {
     fn write_str(&mut self, string: &str) -> Result<(), core::fmt::Error> {
         string.chars().for_each(|c| {
             if c == '\n' {
-                self.column_position = (0, self.column_position.1 + 10);
+                self.column_position = (0, self.column_position.1 + FONT_HEIGHT);
             } else {
-                self.mode.unwrap().draw_character(
-                    (self.top_left.0 + self.column_position.0) as usize,
-                    (self.top_left.1 + self.column_position.1) as usize,
+                self.draw_character(
+                    (self.column_position.0, self.column_position.1),
                     c,
-                    self.color_code,
+                    self.foreground,
                 );
             }
-            self.column_position.0 += 8;
-            if self.column_position.0 > self.size.0 {
+            self.column_position.0 += FONT_WIDTH;
+            if self.column_position.0 + FONT_WIDTH > self.size.0 {
                 self.column_position.0 = 0;
-                self.column_position.1 += 10;
+                self.column_position.1 += FONT_HEIGHT;
             }
-            if self.column_position.1 > self.size.1 {
+            if self.column_position.1 + FONT_HEIGHT > self.size.1 {
                 self.mode.unwrap().clear_screen(Color16::Black);
                 self.column_position = (0, 0);
             }

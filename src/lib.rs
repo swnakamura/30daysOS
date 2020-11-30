@@ -183,9 +183,13 @@ use vga_graphic::WindowControl;
 pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
     use core::fmt::Write;
     if let Some(mut window_control) = window_control {
-        let window_id = window_control.allocate();
-        write!(window_control.windows[window_id], "Hello world!").unwrap();
-        window_control.change_window_height(window_id, 1);
+        // let mouse_id = window_control.allocate();
+        // window_control.change_window_height(mouse_id, 1);
+        let background_id = window_control.allocate();
+        window_control.windows[background_id].adjust((100, 100));
+        window_control.change_window_height(background_id, 2);
+        write!(window_control.windows[background_id], "Hello world!").unwrap();
+        window_control.refresh_screen();
         loop {
             asm::cli();
             // we assume this is single-threaded as static variables are used here
@@ -194,7 +198,7 @@ pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
                     let c = KEY_BUF.pop().unwrap();
                     asm::sti();
                     use crate::alloc::string::ToString;
-                    window_control.windows[window_id]
+                    window_control.windows[background_id]
                         .write_str(c.to_string().as_str())
                         .unwrap();
                     window_control.refresh_screen();
@@ -216,10 +220,11 @@ pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
             unsafe {
                 if KEY_BUF.status() != 0 {
                     let c = KEY_BUF.pop().unwrap();
-                    println!("{}", c);
+                    print!("{}", c);
                     asm::sti();
                 } else if MOUSE_BUF.status() != 0 {
                     let packet = MOUSE_BUF.pop().unwrap();
+                    // TODO: マウスを高速で動かすとErrが起こる原因を確かめる
                     println!("{}", packet);
                     asm::sti();
                     crate::interrupts::MOUSE.lock().process_packet(packet);
