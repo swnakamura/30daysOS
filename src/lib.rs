@@ -183,10 +183,10 @@ use vga_graphic::WindowControl;
 pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
     use core::fmt::Write;
     if let Some(mut window_control) = window_control {
-        // let mouse_id = window_control.allocate();
-        // window_control.change_window_height(mouse_id, 1);
         let background_id = window_control.allocate();
         window_control.windows[background_id].adjust((100, 100));
+        use vga::colors::Color16;
+        window_control.windows[background_id].change_color(Color16::White, Color16::Cyan);
         window_control.change_window_height(background_id, 2);
         write!(window_control.windows[background_id], "Hello world!").unwrap();
         window_control.refresh_screen();

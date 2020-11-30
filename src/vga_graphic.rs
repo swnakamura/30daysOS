@@ -120,7 +120,7 @@ impl<'a> WindowControl<'a> {
     }
 
     pub fn refresh_screen(&mut self) {
-        // self.mode.clear_screen(Color16::Black);
+        self.mode.clear_screen(Color16::Black);
         for h in 0..=self.top {
             let window = &self.windows[self.height_to_windows_idx[h as usize]];
             let buf = &window.buf;
@@ -160,7 +160,7 @@ impl<'a> Window<'a> {
             background: Color16::Black,
             top_left,
             size,
-            buf: Self::create_buffer(size),
+            buf: Self::create_buffer(size, Color16::Black),
             column_position,
             // column_len: size.0 / 8,
             // line_len: size.1 / 16,
@@ -172,15 +172,20 @@ impl<'a> Window<'a> {
     }
     pub fn adjust(&mut self, new_size: Point<isize>) {
         self.size = new_size;
-        self.buf = Self::create_buffer(new_size);
+        self.buf = Self::create_buffer(new_size, self.background);
     }
     pub fn change_color(&mut self, foreground: Color16, background: Color16) {
         self.foreground = foreground;
         self.background = background;
+        for line in &mut self.buf {
+            for i in 0..line.len() {
+                line[i] = background;
+            }
+        }
     }
-    fn create_buffer(size: Point<isize>) -> Vec<Vec<Color16>> {
+    fn create_buffer(size: Point<isize>, background: Color16) -> Vec<Vec<Color16>> {
         use alloc::vec;
-        vec![vec![Color16::Black; size.0 as usize]; size.1 as usize]
+        vec![vec![background; size.0 as usize]; size.1 as usize]
     }
 
     pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color16) {
@@ -209,6 +214,7 @@ impl<'a> fmt::Write for Window<'a> {
         string.chars().for_each(|c| {
             if c == '\n' {
                 self.column_position = (0, self.column_position.1 + FONT_HEIGHT);
+                return;
             } else {
                 self.draw_character(
                     (self.column_position.0, self.column_position.1),
