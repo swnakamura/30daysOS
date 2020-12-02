@@ -189,12 +189,12 @@ impl Window {
             let d = font[i as usize];
             for bit in 0..FONT_WIDTH {
                 if d & 1 << (FONT_WIDTH - bit - 1) != 0 {
-                    self.bufwrite_pixel(((coord.1 + i), (coord.0 + bit)), color);
+                    self.write_pixel_to_buf(((coord.1 + i), (coord.0 + bit)), color);
                 }
             }
         }
     }
-    fn bufwrite_pixel(&mut self, coord: Point<isize>, color: Color16) {
+    fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Color16) {
         self.buf[coord.0 as usize][coord.1 as usize] = color;
     }
     fn clear_buf(&mut self) {
