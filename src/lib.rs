@@ -206,7 +206,6 @@ pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
                     let packet = MOUSE_BUF.pop().unwrap();
                     asm::sti();
                     crate::interrupts::MOUSE.lock().process_packet(packet);
-                    window_control.refresh_screen();
                 } else {
                     asm::stihlt();
                 }
