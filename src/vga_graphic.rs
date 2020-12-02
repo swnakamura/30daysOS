@@ -36,7 +36,7 @@ bitflags! {
 pub struct WindowControl<'a> {
     pub mode: &'a Graphics640x480x16,
     /// pointers to the registered windows.
-    pub windows: Vec<Window<'a>>,
+    pub windows: Vec<Window>,
     /// map height to windows index. windows with height==-1 is not mapped.
     height_to_windows_idx: [usize; MAX_WIN_NUM],
     top: isize,
@@ -62,7 +62,6 @@ impl<'a> WindowControl<'a> {
                 let win = &mut self.windows[i];
                 win.flag = WinFlag::USE;
                 win.height = -1;
-                win.mode = Some(self.mode);
                 return i;
             }
         }
@@ -137,7 +136,7 @@ impl<'a> WindowControl<'a> {
     }
 }
 
-pub struct Window<'a> {
+pub struct Window {
     top_left: Point<isize>,
     size: Point<isize>,
     column_position: Point<isize>,
@@ -150,10 +149,9 @@ pub struct Window<'a> {
     /// 透明/色番号（color and invisible）
     // col_inv: i32,
     flag: WinFlag,
-    mode: Option<&'a dyn GraphicsWriter<Color16>>,
 }
 
-impl<'a> Window<'a> {
+impl Window {
     pub fn new(top_left: Point<isize>, size: Point<isize>, column_position: Point<isize>) -> Self {
         Self {
             foreground: Color16::White,
@@ -165,7 +163,6 @@ impl<'a> Window<'a> {
             // col_inv: 0,
             height: 0,
             flag: WinFlag::empty(),
-            mode: None,
         }
     }
     pub fn adjust(&mut self, new_size: Point<isize>) {
@@ -200,6 +197,13 @@ impl<'a> Window<'a> {
     fn bufwrite_pixel(&mut self, coord: Point<isize>, color: Color16) {
         self.buf[coord.0 as usize][coord.1 as usize] = color;
     }
+    fn clear_buf(&mut self) {
+        for i in 0..self.buf.len() {
+            for j in 0..self.buf[i].len() {
+                self.buf[i][j] = self.background;
+            }
+        }
+    }
 }
 
 const FONT_WIDTH: isize = 8;
@@ -207,7 +211,7 @@ const FONT_HEIGHT: isize = 16;
 type Font = [[u16; 16]; 256];
 const FONT_DATA: Font = include!("../build/font.in");
 
-impl<'a> fmt::Write for Window<'a> {
+impl fmt::Write for Window {
     fn write_str(&mut self, string: &str) -> Result<(), core::fmt::Error> {
         string.chars().for_each(|c| {
             if c == '\n' {
@@ -226,7 +230,7 @@ impl<'a> fmt::Write for Window<'a> {
                 self.column_position.1 += FONT_HEIGHT;
             }
             if self.column_position.1 + FONT_HEIGHT > self.size.1 {
-                self.mode.unwrap().clear_screen(Color16::Black);
+                self.clear_buf();
                 self.column_position = (0, 0);
             }
         });
