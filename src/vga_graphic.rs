@@ -281,6 +281,7 @@ pub fn draw_mouse(
     prev_location: &Point<isize>,
     bc: &Color16,
 ) {
+    // overwrite previous location
     for y in 0..CURSOR_HEIGHT {
         for x in 0..CURSOR_WIDTH {
             let color = *bc;
@@ -291,6 +292,7 @@ pub fn draw_mouse(
             );
         }
     }
+    // write to next location
     for y in 0..CURSOR_HEIGHT {
         for x in 0..CURSOR_WIDTH {
             let color = match CURSOR[x][y] {
