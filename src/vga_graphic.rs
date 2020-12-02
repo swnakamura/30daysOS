@@ -20,8 +20,6 @@ lazy_static! {
         Mutex::new(WindowControl::new(&MODE));
 }
 
-pub fn graphic_mode() {}
-
 const MAX_WIN_NUM: usize = 256;
 
 bitflags! {

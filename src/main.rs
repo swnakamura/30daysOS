@@ -34,8 +34,6 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         .iter()
         .for_each(|x| println!("{:?}", x));
 
-    haribote::vga_graphic::graphic_mode();
-
     #[cfg(test)]
     test_main();
 
