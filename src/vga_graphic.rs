@@ -2,6 +2,7 @@ use crate::util::clip;
 use alloc::vec::Vec;
 use core::fmt;
 use lazy_static::lazy_static;
+use spin::Mutex;
 use vga::colors::Color16;
 use vga::drawing::Point;
 use vga::writers::{Graphics640x480x16, GraphicsWriter};
@@ -15,15 +16,11 @@ lazy_static! {
         mode.clear_screen(Color16::Black);
         mode
     };
+    pub static ref WINDOW_CONTROL: Mutex<WindowControl<'static>> =
+        Mutex::new(WindowControl::new(&MODE));
 }
 
-pub fn graphic_mode<'a>() -> WindowControl<'a> {
-    let window_control: WindowControl<'a> = {
-        let window_control = WindowControl::new(&MODE);
-        window_control
-    };
-    window_control
-}
+pub fn graphic_mode() {}
 
 const MAX_WIN_NUM: usize = 256;
 

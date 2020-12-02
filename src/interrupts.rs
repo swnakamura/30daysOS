@@ -119,7 +119,7 @@ mod handler {
         println!("Accessed address: {:?}", Cr2::read());
         println!("Error code: {:?}", error_code);
         println!("{:#?}", stack_frame);
-        hlt_loop(None);
+        hlt_loop();
     }
 } /* handler */
 

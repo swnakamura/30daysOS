@@ -177,59 +177,35 @@ impl<T: Clone> FIFO<T> {
     }
 }
 
-use vga_graphic::WindowControl;
-
 /// loops `HLT` instruction
-pub fn hlt_loop<'a, 'b>(window_control: Option<WindowControl<'a>>) -> ! {
+pub fn hlt_loop() -> ! {
     use core::fmt::Write;
-    if let Some(mut window_control) = window_control {
-        let background_id = window_control.allocate();
-        window_control.windows[background_id].adjust((100, 100));
-        use vga::colors::Color16;
-        window_control.windows[background_id].change_color(Color16::White, Color16::Cyan);
-        window_control.change_window_height(background_id, 2);
-        write!(window_control.windows[background_id], "Hello world!").unwrap();
-        window_control.refresh_screen();
-        loop {
-            asm::cli();
-            // we assume this is single-threaded as static variables are used here
-            unsafe {
-                if KEY_BUF.status() != 0 {
-                    let c = KEY_BUF.pop().unwrap();
-                    asm::sti();
-                    use crate::alloc::string::ToString;
-                    window_control.windows[background_id]
-                        .write_str(c.to_string().as_str())
-                        .unwrap();
-                    window_control.refresh_screen();
-                } else if MOUSE_BUF.status() != 0 {
-                    let packet = MOUSE_BUF.pop().unwrap();
-                    asm::sti();
-                    crate::interrupts::MOUSE.lock().process_packet(packet);
-                } else {
-                    asm::stihlt();
-                }
-            }
-        }
-    } else {
-        loop {
-            // x86_64::instructions::hlt()
-            asm::cli();
-            // we assume this is single-threaded as static variables are used here
-            unsafe {
-                if KEY_BUF.status() != 0 {
-                    let c = KEY_BUF.pop().unwrap();
-                    print!("{}", c);
-                    asm::sti();
-                } else if MOUSE_BUF.status() != 0 {
-                    let packet = MOUSE_BUF.pop().unwrap();
-                    // TODO: マウスを高速で動かすとErrが起こる原因を確かめる
-                    println!("{}", packet);
-                    asm::sti();
-                    crate::interrupts::MOUSE.lock().process_packet(packet);
-                } else {
-                    asm::stihlt();
-                }
+    use vga_graphic::WINDOW_CONTROL;
+    let background_id = WINDOW_CONTROL.lock().allocate();
+    WINDOW_CONTROL.lock().windows[background_id].adjust((100, 100));
+    use vga::colors::Color16;
+    WINDOW_CONTROL.lock().windows[background_id].change_color(Color16::White, Color16::Cyan);
+    WINDOW_CONTROL.lock().change_window_height(background_id, 2);
+    write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
+    WINDOW_CONTROL.lock().refresh_screen();
+    loop {
+        asm::cli();
+        // we assume this is single-threaded as static variables are used here
+        unsafe {
+            if KEY_BUF.status() != 0 {
+                let c = KEY_BUF.pop().unwrap();
+                asm::sti();
+                use crate::alloc::string::ToString;
+                WINDOW_CONTROL.lock().windows[background_id]
+                    .write_str(c.to_string().as_str())
+                    .unwrap();
+                WINDOW_CONTROL.lock().refresh_screen();
+            } else if MOUSE_BUF.status() != 0 {
+                let packet = MOUSE_BUF.pop().unwrap();
+                asm::sti();
+                crate::interrupts::MOUSE.lock().process_packet(packet);
+            } else {
+                asm::stihlt();
             }
         }
     }

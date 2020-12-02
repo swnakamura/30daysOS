@@ -34,14 +34,14 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         .iter()
         .for_each(|x| println!("{:?}", x));
 
-    let window_control = haribote::vga_graphic::graphic_mode();
+    haribote::vga_graphic::graphic_mode();
 
     #[cfg(test)]
     test_main();
 
     println!("It did not crash!");
 
-    haribote::hlt_loop(Some(window_control));
+    haribote::hlt_loop();
 }
 
 #[cfg(test)]
@@ -54,5 +54,5 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    haribote::hlt_loop(None);
+    haribote::hlt_loop();
 }
