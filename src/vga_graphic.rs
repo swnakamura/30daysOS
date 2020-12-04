@@ -42,9 +42,10 @@ lazy_static! {
     pub static ref WINDOW_CONTROL: Mutex<WindowControl<'static>> =
         Mutex::new(WindowControl::new(&MODE));
     pub static ref MOUSE_ID: usize = {
-        let mouse_id = WINDOW_CONTROL.lock().allocate();
-        WINDOW_CONTROL.lock().windows[mouse_id]
-            .adjust((CURSOR_WIDTH as isize, CURSOR_HEIGHT as isize));
+        let mouse_id = WINDOW_CONTROL
+            .lock()
+            .allocate((CURSOR_WIDTH as isize, CURSOR_HEIGHT as isize))
+            .unwrap();
         for y in 0..CURSOR_HEIGHT {
             for x in 0..CURSOR_WIDTH {
                 let color = match CURSOR[x][y] {
@@ -96,16 +97,17 @@ impl<'a> WindowControl<'a> {
         }
     }
     /// register a new window
-    pub fn allocate(&mut self) -> usize {
+    pub fn allocate(&mut self, size: Point<isize>) -> Option<usize> {
         for i in 0..MAX_WIN_NUM {
             if !self.windows[i].flag.contains(WinFlag::USE) {
                 let win = &mut self.windows[i];
                 win.flag = WinFlag::USE;
                 win.height = -1;
-                return i;
+                win.adjust(size);
+                return Some(i);
             }
         }
-        return 0;
+        return None;
     }
 
     pub fn change_window_height(&mut self, idx_to_move: usize, new_height: i32) {
