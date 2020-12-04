@@ -6,8 +6,31 @@ use spin::Mutex;
 use vga::colors::Color16;
 use vga::drawing::Point;
 use vga::writers::{Graphics640x480x16, GraphicsWriter};
+
 pub const SCREEN_WIDTH: isize = 640;
 pub const SCREEN_HEIGHT: isize = 480;
+
+const CURSOR_WIDTH: usize = 16;
+const CURSOR_HEIGHT: usize = 16;
+
+const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
+    *b"**************..",
+    *b"*OOOOOOOOOOO*...",
+    *b"*OOOOOOOOOO*....",
+    *b"*OOOOOOOOO*.....",
+    *b"*OOOOOOOO*......",
+    *b"*OOOOOOO*.......",
+    *b"*OOOOOOO*.......",
+    *b"*OOOOOOOO*......",
+    *b"*OOOO**OOO*.....",
+    *b"*OOO*..*OOO*....",
+    *b"*OO*....*OOO*...",
+    *b"*O*......*OOO*..",
+    *b"**........*OOO*.",
+    *b"*..........*OOO*",
+    *b"............*OO*",
+    *b".............***",
+];
 
 lazy_static! {
     pub static ref MODE: Graphics640x480x16 = {
@@ -18,6 +41,28 @@ lazy_static! {
     };
     pub static ref WINDOW_CONTROL: Mutex<WindowControl<'static>> =
         Mutex::new(WindowControl::new(&MODE));
+    pub static ref MOUSE_ID: usize = {
+        let mouse_id = WINDOW_CONTROL.lock().allocate();
+        WINDOW_CONTROL.lock().windows[mouse_id]
+            .adjust((CURSOR_WIDTH as isize, CURSOR_HEIGHT as isize));
+        for y in 0..CURSOR_HEIGHT {
+            for x in 0..CURSOR_WIDTH {
+                let color = match CURSOR[x][y] {
+                    b'*' => Color16::Black,
+                    b'O' => Color16::White,
+                    _ => Color16::Yellow,
+                };
+                WINDOW_CONTROL.lock().windows[mouse_id]
+                    .write_pixel_to_buf((x as isize, y as isize), color);
+            }
+        }
+        WINDOW_CONTROL.lock().change_window_height(mouse_id, 1);
+        mouse_id
+    };
+}
+
+pub fn graphic_mode() {
+    crate::println!("{:?}", *MOUSE_ID);
 }
 
 const MAX_WIN_NUM: usize = 256;
@@ -128,6 +173,18 @@ impl<'a> WindowControl<'a> {
                 }
             }
         }
+        // TODO
+        let mouse_window: &Window = &self.windows[2];
+        let mouse_buf = &mouse_window.buf;
+        for (line_num, line) in mouse_buf.iter().enumerate() {
+            for (row_num, row) in line.iter().enumerate() {
+                MODE.set_pixel(
+                    (mouse_window.top_left.0 + row_num as isize) as usize,
+                    (mouse_window.top_left.1 + line_num as isize) as usize,
+                    *row,
+                );
+            }
+        }
     }
 }
 
@@ -163,6 +220,18 @@ impl Window {
     pub fn adjust(&mut self, new_size: Point<isize>) {
         self.size = new_size;
         self.buf = Self::create_buffer(new_size, self.background);
+    }
+    pub fn moveby(&mut self, movement: Point<isize>) {
+        self.top_left.0 += movement.0;
+        self.top_left.0 = clip(self.top_left.0, 0, SCREEN_WIDTH);
+        self.top_left.1 += movement.1;
+        self.top_left.1 = clip(self.top_left.1, 0, SCREEN_HEIGHT);
+    }
+    pub fn moveto(&mut self, movement: Point<isize>) {
+        self.top_left.0 = movement.0;
+        self.top_left.0 = clip(self.top_left.0, 0, SCREEN_WIDTH);
+        self.top_left.1 = movement.1;
+        self.top_left.1 = clip(self.top_left.1, 0, SCREEN_HEIGHT);
     }
     pub fn change_color(&mut self, foreground: Color16, background: Color16) {
         self.foreground = foreground;
@@ -251,28 +320,6 @@ impl fmt::Write for Window {
 //         SCREEN_BG.write_fmt(args).unwrap();
 //     });
 // }
-
-const CURSOR_WIDTH: usize = 16;
-const CURSOR_HEIGHT: usize = 16;
-
-const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
-    *b"**************..",
-    *b"*OOOOOOOOOOO*...",
-    *b"*OOOOOOOOOO*....",
-    *b"*OOOOOOOOO*.....",
-    *b"*OOOOOOOO*......",
-    *b"*OOOOOOO*.......",
-    *b"*OOOOOOO*.......",
-    *b"*OOOOOOOO*......",
-    *b"*OOOO**OOO*.....",
-    *b"*OOO*..*OOO*....",
-    *b"*OO*....*OOO*...",
-    *b"*O*......*OOO*..",
-    *b"**........*OOO*.",
-    *b"*..........*OOO*",
-    *b"............*OO*",
-    *b".............***",
-];
 
 pub fn draw_mouse(
     // window: &mut Window,

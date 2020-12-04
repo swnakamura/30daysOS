@@ -37,6 +37,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
+    haribote::vga_graphic::graphic_mode();
+
     println!("It did not crash!");
 
     haribote::hlt_loop();

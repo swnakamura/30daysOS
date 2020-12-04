@@ -1,6 +1,5 @@
 use crate::gdt;
 use crate::println;
-use crate::util::clip;
 use lazy_static::lazy_static;
 use pic8259_simple::ChainedPics;
 use ps2_mouse::{Mouse, MouseState};
@@ -133,31 +132,12 @@ pub fn init_idt() {
     IDT.load();
 }
 
-#[derive(Debug)]
-struct CursorState {
-    x: isize,
-    y: isize,
-}
-
-static mut CURSOR_STATE: Mutex<CursorState> = Mutex::new(CursorState { x: 0, y: 0 });
+use crate::vga_graphic::{MOUSE_ID, WINDOW_CONTROL};
 
 fn on_mouse_process_complete(mouse_state: MouseState) {
-    // assume this is single-threaded as we use spinlock here
-    unsafe {
-        let prev_x = CURSOR_STATE.lock().x;
-        let prev_y = CURSOR_STATE.lock().y;
-        CURSOR_STATE.lock().x += mouse_state.get_x() as isize;
-        CURSOR_STATE.lock().y -= mouse_state.get_y() as isize;
-        use crate::vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
-        let xmove = clip(CURSOR_STATE.lock().x, 0, SCREEN_WIDTH);
-        CURSOR_STATE.lock().x = xmove;
-        let ymove = clip(CURSOR_STATE.lock().y, 0, SCREEN_HEIGHT);
-        CURSOR_STATE.lock().y = ymove;
-        let x = CURSOR_STATE.lock().x;
-        let y = CURSOR_STATE.lock().y;
-        use vga::colors::Color16;
-        crate::vga_graphic::draw_mouse(&(x, y), &(prev_x, prev_y), &Color16::Black);
-    }
+    WINDOW_CONTROL.lock().windows[*MOUSE_ID]
+        .moveby((mouse_state.get_x() as isize, mouse_state.get_y() as isize));
+    WINDOW_CONTROL.lock().refresh_screen();
 }
 
 pub const PIC_1_OFFSET: u8 = 0x20;
