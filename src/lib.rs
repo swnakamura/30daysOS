@@ -185,15 +185,15 @@ pub fn hlt_loop() -> ! {
     let background_id = WINDOW_CONTROL.lock().allocate((100, 100)).unwrap();
     use vga::colors::Color16;
     WINDOW_CONTROL.lock().windows[background_id].change_color(Color16::White, Color16::Cyan);
-    WINDOW_CONTROL.lock().change_window_height(background_id, 0);
-    write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
     write!(
         WINDOW_CONTROL.lock().windows[background_id],
         "{:?}",
         *MOUSE_ID
     )
     .unwrap();
-    WINDOW_CONTROL.lock().refresh_screen();
+    WINDOW_CONTROL.lock().change_window_height(background_id, 0);
+    write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
+    WINDOW_CONTROL.lock().refresh_screen(None);
     loop {
         asm::cli();
         // we assume this is single-threaded as static variables are used here
@@ -205,7 +205,7 @@ pub fn hlt_loop() -> ! {
                 WINDOW_CONTROL.lock().windows[background_id]
                     .write_str(c.to_string().as_str())
                     .unwrap();
-                WINDOW_CONTROL.lock().refresh_screen();
+                WINDOW_CONTROL.lock().refresh_screen(None);
             } else if MOUSE_BUF.status() != 0 {
                 let packet = MOUSE_BUF.pop().unwrap();
                 asm::sti();

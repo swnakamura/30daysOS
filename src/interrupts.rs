@@ -132,12 +132,22 @@ pub fn init_idt() {
     IDT.load();
 }
 
-use crate::vga_graphic::{MOUSE_ID, WINDOW_CONTROL};
-
 fn on_mouse_process_complete(mouse_state: MouseState) {
-    WINDOW_CONTROL.lock().windows[*MOUSE_ID]
-        .moveby((mouse_state.get_x() as isize, mouse_state.get_y() as isize));
-    WINDOW_CONTROL.lock().refresh_screen();
+    use crate::vga_graphic::{CURSOR_HEIGHT, CURSOR_WIDTH, MOUSE_ID, WINDOW_CONTROL};
+    let (prev_position, _) = WINDOW_CONTROL.lock().windows[*MOUSE_ID].position();
+    let movement = (mouse_state.get_x() as isize, mouse_state.get_y() as isize);
+
+    WINDOW_CONTROL.lock().windows[*MOUSE_ID].moveby((movement.0, -movement.1));
+
+    let new_position = (prev_position.0 + movement.0, prev_position.1 + movement.1);
+
+    let min_x = core::cmp::min(prev_position.0, new_position.0 as isize);
+    let min_y = core::cmp::min(prev_position.1, new_position.1 as isize);
+    let max_x = core::cmp::max(prev_position.0, new_position.0 as isize) + CURSOR_WIDTH as isize;
+    let max_y = core::cmp::max(prev_position.1, new_position.1 as isize) + CURSOR_HEIGHT as isize;
+    WINDOW_CONTROL
+        .lock()
+        .refresh_screen(Some(((min_x, min_y), (max_x, max_y))));
 }
 
 pub const PIC_1_OFFSET: u8 = 0x20;

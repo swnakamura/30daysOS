@@ -10,8 +10,8 @@ use vga::writers::{Graphics640x480x16, GraphicsWriter};
 pub const SCREEN_WIDTH: isize = 640;
 pub const SCREEN_HEIGHT: isize = 480;
 
-const CURSOR_WIDTH: usize = 16;
-const CURSOR_HEIGHT: usize = 16;
+pub const CURSOR_WIDTH: usize = 16;
+pub const CURSOR_HEIGHT: usize = 16;
 
 const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
     *b"**************..",
@@ -63,6 +63,7 @@ lazy_static! {
 }
 
 pub fn graphic_mode() {
+    // Need this code to evaluate MOUSE_ID
     crate::println!("{:?}", *MOUSE_ID);
 }
 
@@ -150,7 +151,7 @@ impl<'a> WindowControl<'a> {
                 self.top += 1;
             }
         }
-        self.refresh_screen();
+        self.refresh_screen(None);
     }
 
     pub fn free(&mut self, window_id: usize) {
@@ -160,31 +161,43 @@ impl<'a> WindowControl<'a> {
         unimplemented!()
     }
 
-    pub fn refresh_screen(&mut self) {
-        self.mode.clear_screen(Color16::Black);
+    /// Refresh screen in the refresh_area.
+    /// If refresh_area is not given, whole screen is refreshed.
+    pub fn refresh_screen(&mut self, refresh_area: Option<(Point<isize>, Point<isize>)>) {
+        fn point_fits_in_area((x, y): Point<isize>, area: (Point<isize>, Point<isize>)) -> bool {
+            area.0.0 <= x && x <= area.1.0 && area.0.1 <= y && y <= area.1.1
+        }
         for h in 0..=self.top {
             let window = &self.windows[self.height_to_windows_idx[h as usize]];
             let buf = &window.buf;
             for (line_num, line) in buf.iter().enumerate() {
                 for (row_num, row) in line.iter().enumerate() {
-                    MODE.set_pixel(
-                        (window.top_left.0 + row_num as isize) as usize,
-                        (window.top_left.1 + line_num as isize) as usize,
-                        *row,
-                    );
+                    let x = window.top_left.0 + row_num as isize;
+                    let y = window.top_left.1 + line_num as isize;
+                    if let Some(refresh_area) = refresh_area {
+                        if point_fits_in_area((x, y), refresh_area) {
+                            MODE.set_pixel(x as usize, y as usize, *row);
+                        }
+                    } else {
+                        MODE.set_pixel(x as usize, y as usize, *row);
+                    }
                 }
             }
         }
-        // TODO
-        let mouse_window: &Window = &self.windows[2];
+        // HACK: *MOUSE_ID is always 0.
+        let mouse_window: &Window = &self.windows[0];
         let mouse_buf = &mouse_window.buf;
         for (line_num, line) in mouse_buf.iter().enumerate() {
             for (row_num, row) in line.iter().enumerate() {
-                MODE.set_pixel(
-                    (mouse_window.top_left.0 + row_num as isize) as usize,
-                    (mouse_window.top_left.1 + line_num as isize) as usize,
-                    *row,
-                );
+                let x = mouse_window.top_left.0 + row_num as isize;
+                let y = mouse_window.top_left.1 + line_num as isize;
+                if let Some(refresh_area) = refresh_area {
+                    if point_fits_in_area((x, y), refresh_area) {
+                        MODE.set_pixel(x as usize, y as usize, *row);
+                    }
+                } else {
+                    MODE.set_pixel(x as usize, y as usize, *row);
+                }
             }
         }
     }
@@ -218,6 +231,9 @@ impl Window {
             height: 0,
             flag: WinFlag::empty(),
         }
+    }
+    pub fn position(&self) -> (Point<isize>, Point<isize>) {
+        return (self.top_left, self.size);
     }
     pub fn adjust(&mut self, new_size: Point<isize>) {
         self.size = new_size;
