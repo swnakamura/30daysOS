@@ -49,9 +49,9 @@ lazy_static! {
         for y in 0..CURSOR_HEIGHT {
             for x in 0..CURSOR_WIDTH {
                 let color = match CURSOR[x][y] {
-                    b'*' => Color16::Black,
-                    b'O' => Color16::White,
-                    _ => Color16::Yellow,
+                    b'*' => Some(Color16::Black),
+                    b'O' => Some(Color16::White),
+                    _ => None,
                 };
                 WINDOW_CONTROL.lock().windows[mouse_id]
                     .write_pixel_to_buf((x as isize, y as isize), color);
@@ -174,12 +174,14 @@ impl<'a> WindowControl<'a> {
                 for (row_num, row) in line.iter().enumerate() {
                     let x = window.top_left.0 + row_num as isize;
                     let y = window.top_left.1 + line_num as isize;
-                    if let Some(refresh_area) = refresh_area {
-                        if point_fits_in_area((x, y), refresh_area) {
+                    if let Some(row) = row {
+                        if let Some(refresh_area) = refresh_area {
+                            if point_fits_in_area((x, y), refresh_area) {
+                                MODE.set_pixel(x as usize, y as usize, *row);
+                            }
+                        } else {
                             MODE.set_pixel(x as usize, y as usize, *row);
                         }
-                    } else {
-                        MODE.set_pixel(x as usize, y as usize, *row);
                     }
                 }
             }
@@ -191,12 +193,14 @@ impl<'a> WindowControl<'a> {
             for (row_num, row) in line.iter().enumerate() {
                 let x = mouse_window.top_left.0 + row_num as isize;
                 let y = mouse_window.top_left.1 + line_num as isize;
-                if let Some(refresh_area) = refresh_area {
-                    if point_fits_in_area((x, y), refresh_area) {
+                if let Some(row) = row {
+                    if let Some(refresh_area) = refresh_area {
+                        if point_fits_in_area((x, y), refresh_area) {
+                            MODE.set_pixel(x as usize, y as usize, *row);
+                        }
+                    } else {
                         MODE.set_pixel(x as usize, y as usize, *row);
                     }
-                } else {
-                    MODE.set_pixel(x as usize, y as usize, *row);
                 }
             }
         }
@@ -209,7 +213,7 @@ pub struct Window {
     column_position: Point<isize>,
     // column_len: isize,
     // line_len: isize,
-    buf: Vec<Vec<Color16>>,
+    buf: Vec<Vec<Option<Color16>>>,
     foreground: Color16,
     background: Color16,
     height: i32,
@@ -256,13 +260,13 @@ impl Window {
         self.background = background;
         for line in &mut self.buf {
             for i in 0..line.len() {
-                line[i] = background;
+                line[i] = Some(background);
             }
         }
     }
-    fn create_buffer(size: Point<isize>, background: Color16) -> Vec<Vec<Color16>> {
+    fn create_buffer(size: Point<isize>, background: Color16) -> Vec<Vec<Option<Color16>>> {
         use alloc::vec;
-        vec![vec![background; size.0 as usize]; size.1 as usize]
+        vec![vec![Some(background); size.0 as usize]; size.1 as usize]
     }
 
     pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color16) {
@@ -271,18 +275,18 @@ impl Window {
             let d = font[i as usize];
             for bit in 0..FONT_WIDTH {
                 if d & 1 << (FONT_WIDTH - bit - 1) != 0 {
-                    self.write_pixel_to_buf(((coord.0 + bit), (coord.1 + i)), color);
+                    self.write_pixel_to_buf(((coord.0 + bit), (coord.1 + i)), Some(color));
                 }
             }
         }
     }
-    fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Color16) {
+    fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Option<Color16>) {
         self.buf[coord.1 as usize][coord.0 as usize] = color;
     }
     fn clear_buf(&mut self) {
         for i in 0..self.buf.len() {
             for j in 0..self.buf[i].len() {
-                self.buf[i][j] = self.background;
+                self.buf[i][j] = Some(self.background);
             }
         }
     }
