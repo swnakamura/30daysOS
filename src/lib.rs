@@ -129,7 +129,7 @@ pub struct FIFO<T: 'static> {
 }
 
 pub const KEY_BUF_SIZE: usize = 32;
-pub const MOUSE_BUF_SIZE: usize = 128;
+pub const MOUSE_BUF_SIZE: usize = 1024;
 
 pub static mut KEY_BUF: FIFO<char> = FIFO {
     buf: &mut ['0'; KEY_BUF_SIZE],
