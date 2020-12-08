@@ -221,34 +221,7 @@ impl<'a> WindowControl<'a> {
                 }
             }
         }
-        // let mouse_window = &self.windows[self.height_to_windows_idx[*MOUSE_ID]];
-        // let mouse_buf = &mouse_window.buf;
-        // let buffer_topleft = mouse_window.top_left;
-        // let buffer_bottomright = (
-        //     mouse_window.top_left.0 + mouse_window.size.0,
-        //     mouse_window.top_left.1 + mouse_window.size.1,
-        // );
-        // let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
-        //     let area_topleft = refresh_area.0;
-        //     let area_bottomright = refresh_area.1;
-        //     (
-        //         max(buffer_topleft.0, area_topleft.0)
-        //             ..min(buffer_bottomright.0, area_bottomright.0),
-        //         max(buffer_topleft.1, area_topleft.1)
-        //             ..min(buffer_bottomright.1, area_bottomright.1),
-        //     )
-        // } else {
-        //     (0..mouse_window.size.0, 0..mouse_window.size.1)
-        // };
-        // for y in yrange.clone() {
-        //     for x in xrange.clone() {
-        //         if let Some(row) =
-        //             mouse_buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
-        //         {
-        //             MODE.set_pixel(x as usize, y as usize, row);
-        //         }
-        //     }
-        // }
+        // TODO: update mouse window
     }
 }
 
