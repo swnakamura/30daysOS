@@ -163,8 +163,31 @@ impl<'a> WindowControl<'a> {
 
     /// Refresh screen in the refresh_area.
     /// If refresh_area is not given, whole screen is refreshed.
+    /// 1. refresh with black
+    /// 2. refresh with windows
     pub fn refresh_screen(&mut self, refresh_area: Option<(Point<isize>, Point<isize>)>) {
         use core::cmp::{max, min};
+
+        // refresh with black
+        let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
+            let area_topleft = refresh_area.0;
+            let area_bottomright = refresh_area.1;
+            (
+                area_topleft.0..area_bottomright.0,
+                area_topleft.1..area_bottomright.1,
+            )
+        } else {
+            (0..0, 0..0)
+        };
+        for y in yrange.clone() {
+            for x in xrange.clone() {
+                {
+                    MODE.set_pixel(x as usize, y as usize, Color16::Black);
+                }
+            }
+        }
+
+        // refresh with windows
         for h in 0..=self.top {
             let window = &self.windows[self.height_to_windows_idx[h as usize]];
             let buf = &window.buf;
