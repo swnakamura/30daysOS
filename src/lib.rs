@@ -182,15 +182,9 @@ pub fn hlt_loop() -> ! {
     use core::fmt::Write;
     use vga_graphic::{MOUSE_ID, WINDOW_CONTROL};
 
-    let background_id = WINDOW_CONTROL.lock().allocate((100, 100)).unwrap();
+    let background_id = WINDOW_CONTROL.lock().allocate((150, 100)).unwrap();
     use vga::colors::Color16;
     WINDOW_CONTROL.lock().windows[background_id].change_color(Color16::White, Color16::Cyan);
-    write!(
-        WINDOW_CONTROL.lock().windows[background_id],
-        "{:?}",
-        *MOUSE_ID
-    )
-    .unwrap();
     WINDOW_CONTROL.lock().change_window_height(background_id, 0);
     write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
     WINDOW_CONTROL.lock().refresh_screen(None);

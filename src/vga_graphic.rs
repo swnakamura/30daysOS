@@ -164,46 +164,65 @@ impl<'a> WindowControl<'a> {
     /// Refresh screen in the refresh_area.
     /// If refresh_area is not given, whole screen is refreshed.
     pub fn refresh_screen(&mut self, refresh_area: Option<(Point<isize>, Point<isize>)>) {
-        fn point_fits_in_area((x, y): Point<isize>, area: (Point<isize>, Point<isize>)) -> bool {
-            area.0.0 <= x && x <= area.1.0 && area.0.1 <= y && y <= area.1.1
-        }
+        use core::cmp::{max, min};
         for h in 0..=self.top {
             let window = &self.windows[self.height_to_windows_idx[h as usize]];
             let buf = &window.buf;
-            for (line_num, line) in buf.iter().enumerate() {
-                for (row_num, row) in line.iter().enumerate() {
-                    let x = window.top_left.0 + row_num as isize;
-                    let y = window.top_left.1 + line_num as isize;
-                    if let Some(row) = row {
-                        if let Some(refresh_area) = refresh_area {
-                            if point_fits_in_area((x, y), refresh_area) {
-                                MODE.set_pixel(x as usize, y as usize, *row);
-                            }
-                        } else {
-                            MODE.set_pixel(x as usize, y as usize, *row);
-                        }
+            let buffer_topleft = window.top_left;
+            let buffer_bottomright = (
+                window.top_left.0 + window.size.0,
+                window.top_left.1 + window.size.1,
+            );
+            let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
+                let area_topleft = refresh_area.0;
+                let area_bottomright = refresh_area.1;
+                (
+                    max(buffer_topleft.0, area_topleft.0)
+                        ..min(buffer_bottomright.0, area_bottomright.0),
+                    max(buffer_topleft.1, area_topleft.1)
+                        ..min(buffer_bottomright.1, area_bottomright.1),
+                )
+            } else {
+                (0..window.size.0, 0..window.size.1)
+            };
+            for y in yrange.clone() {
+                for x in xrange.clone() {
+                    if let Some(row) =
+                        buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
+                    {
+                        MODE.set_pixel(x as usize, y as usize, row);
                     }
                 }
             }
         }
-        // HACK: *MOUSE_ID is always 0.
-        let mouse_window: &Window = &self.windows[0];
-        let mouse_buf = &mouse_window.buf;
-        for (line_num, line) in mouse_buf.iter().enumerate() {
-            for (row_num, row) in line.iter().enumerate() {
-                let x = mouse_window.top_left.0 + row_num as isize;
-                let y = mouse_window.top_left.1 + line_num as isize;
-                if let Some(row) = row {
-                    if let Some(refresh_area) = refresh_area {
-                        if point_fits_in_area((x, y), refresh_area) {
-                            MODE.set_pixel(x as usize, y as usize, *row);
-                        }
-                    } else {
-                        MODE.set_pixel(x as usize, y as usize, *row);
-                    }
-                }
-            }
-        }
+        // let mouse_window = &self.windows[self.height_to_windows_idx[*MOUSE_ID]];
+        // let mouse_buf = &mouse_window.buf;
+        // let buffer_topleft = mouse_window.top_left;
+        // let buffer_bottomright = (
+        //     mouse_window.top_left.0 + mouse_window.size.0,
+        //     mouse_window.top_left.1 + mouse_window.size.1,
+        // );
+        // let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
+        //     let area_topleft = refresh_area.0;
+        //     let area_bottomright = refresh_area.1;
+        //     (
+        //         max(buffer_topleft.0, area_topleft.0)
+        //             ..min(buffer_bottomright.0, area_bottomright.0),
+        //         max(buffer_topleft.1, area_topleft.1)
+        //             ..min(buffer_bottomright.1, area_bottomright.1),
+        //     )
+        // } else {
+        //     (0..mouse_window.size.0, 0..mouse_window.size.1)
+        // };
+        // for y in yrange.clone() {
+        //     for x in xrange.clone() {
+        //         if let Some(row) =
+        //             mouse_buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
+        //         {
+        //             MODE.set_pixel(x as usize, y as usize, row);
+        //         }
+        //     }
+        // }
     }
 }
 
