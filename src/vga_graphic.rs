@@ -206,7 +206,10 @@ impl<'a> WindowControl<'a> {
                         ..min(buffer_bottomright.1, area_bottomright.1),
                 )
             } else {
-                (0..window.size.0, 0..window.size.1)
+                (
+                    buffer_topleft.0..buffer_topleft.0 + window.size.0,
+                    buffer_topleft.1..buffer_topleft.1 + window.size.1,
+                )
             };
             for y in yrange.clone() {
                 for x in xrange.clone() {
