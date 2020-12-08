@@ -182,7 +182,9 @@ impl<'a> WindowControl<'a> {
         for y in yrange.clone() {
             for x in xrange.clone() {
                 {
-                    MODE.set_pixel(x as usize, y as usize, Color16::Black);
+                    if 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT {
+                        MODE.set_pixel(x as usize, y as usize, Color16::Black);
+                    }
                 }
             }
         }
@@ -216,7 +218,9 @@ impl<'a> WindowControl<'a> {
                     if let Some(row) =
                         buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
                     {
-                        MODE.set_pixel(x as usize, y as usize, row);
+                        if 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT {
+                            MODE.set_pixel(x as usize, y as usize, row);
+                        }
                     }
                 }
             }
