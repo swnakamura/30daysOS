@@ -41,7 +41,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("It did not crash!");
 
-    haribote::hlt_loop();
+    haribote::kernel_loop();
 }
 
 #[cfg(test)]

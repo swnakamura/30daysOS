@@ -102,7 +102,7 @@ entry_point!(test_kernel_main);
 fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
-    hlt_loop(None)
+    kernel_loop(None)
 }
 
 #[cfg(test)]
@@ -179,6 +179,12 @@ impl<T: Clone> FIFO<T> {
 
 /// loops `HLT` instruction
 pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+
+pub fn kernel_loop() -> ! {
     use core::fmt::Write;
     use vga_graphic::{MOUSE_ID, WINDOW_CONTROL};
 
