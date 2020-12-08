@@ -147,9 +147,9 @@ fn on_mouse_process_complete(mouse_state: MouseState) {
     new_position.0 = clip(new_position.0, 0, SCREEN_WIDTH);
     new_position.1 = clip(new_position.1, 0, SCREEN_HEIGHT);
 
-    let min_x = core::cmp::min(prev_position.0, new_position.0 as isize) - 1;
+    let min_x = core::cmp::min(prev_position.0, new_position.0 as isize);
     let max_x = core::cmp::max(prev_position.0, new_position.0 as isize) + CURSOR_WIDTH as isize;
-    let min_y = core::cmp::min(prev_position.1, new_position.1 as isize) - 1;
+    let min_y = core::cmp::min(prev_position.1, new_position.1 as isize);
     let max_y = core::cmp::max(prev_position.1, new_position.1 as isize) + CURSOR_HEIGHT as isize;
     WINDOW_CONTROL
         .lock()
