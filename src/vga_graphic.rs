@@ -302,6 +302,7 @@ impl Window {
             }
         }
     }
+    #[inline(always)]
     fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Option<Color16>) {
         self.buf[coord.1 as usize][coord.0 as usize] = color;
     }
