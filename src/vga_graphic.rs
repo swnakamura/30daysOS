@@ -151,7 +151,8 @@ impl<'a> WindowControl<'a> {
                 self.top += 1;
             }
         }
-        self.refresh_screen(None);
+        let window_area = self.windows[idx_to_move].area();
+        self.refresh_screen(Some(window_area));
     }
 
     pub fn free(&mut self, window_id: usize) {
@@ -258,8 +259,16 @@ impl Window {
             flag: WinFlag::empty(),
         }
     }
+    /// returns position and size of the window
     pub fn position(&self) -> (Point<isize>, Point<isize>) {
         return (self.top_left, self.size);
+    }
+    /// returns area of the window in the screen.
+    pub fn area(&self) -> (Point<isize>, Point<isize>) {
+        (
+            self.top_left,
+            (self.top_left.0 + self.size.0, self.top_left.1 + self.size.1),
+        )
     }
     pub fn adjust(&mut self, new_size: Point<isize>) {
         self.size = new_size;

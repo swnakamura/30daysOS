@@ -186,14 +186,24 @@ pub fn hlt_loop() -> ! {
 
 pub fn kernel_loop() -> ! {
     use core::fmt::Write;
-    use vga_graphic::{MOUSE_ID, WINDOW_CONTROL};
+    use vga::colors::Color16;
+    use vga_graphic::{MOUSE_ID, SCREEN_HEIGHT, SCREEN_WIDTH, WINDOW_CONTROL};
 
     let background_id = WINDOW_CONTROL.lock().allocate((150, 100)).unwrap();
-    use vga::colors::Color16;
     WINDOW_CONTROL.lock().windows[background_id].change_color(Color16::White, Color16::Cyan);
     WINDOW_CONTROL.lock().change_window_height(background_id, 0);
+
+    let test_window_id = WINDOW_CONTROL.lock().allocate((30, 40)).unwrap();
+    WINDOW_CONTROL
+        .lock()
+        .change_window_height(test_window_id, 1);
+    WINDOW_CONTROL.lock().windows[test_window_id].change_color(Color16::White, Color16::Red);
+
     write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
-    WINDOW_CONTROL.lock().refresh_screen(None);
+
+    WINDOW_CONTROL
+        .lock()
+        .refresh_screen(Some(((0, 0), (150, 100))));
     loop {
         asm::cli();
         // we assume this is single-threaded as static variables are used here
@@ -205,7 +215,8 @@ pub fn kernel_loop() -> ! {
                 WINDOW_CONTROL.lock().windows[background_id]
                     .write_str(c.to_string().as_str())
                     .unwrap();
-                WINDOW_CONTROL.lock().refresh_screen(None);
+                let background_area = WINDOW_CONTROL.lock().windows[background_id].area();
+                WINDOW_CONTROL.lock().refresh_screen(Some(background_area));
             } else if MOUSE_BUF.status() != 0 {
                 let packet = MOUSE_BUF.pop().unwrap();
                 asm::sti();
