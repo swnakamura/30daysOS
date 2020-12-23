@@ -188,23 +188,24 @@ pub fn kernel_loop() -> ! {
     use core::fmt::Write;
     use vga_graphic::colors256::Color;
     use vga_graphic::WINDOW_CONTROL;
-    // use vga_graphic::{MOUSE_ID, SCREEN_HEIGHT, SCREEN_WIDTH};
+    use vga_graphic::{MOUSE_ID, SCREEN_HEIGHT, SCREEN_WIDTH};
 
-    let background_id = WINDOW_CONTROL.lock().allocate((150, 100)).unwrap();
+    let background_id = WINDOW_CONTROL
+        .lock()
+        .allocate((SCREEN_WIDTH, SCREEN_HEIGHT))
+        .unwrap();
     WINDOW_CONTROL.lock().windows[background_id].change_color(Color::White, Color::Cyan);
     WINDOW_CONTROL.lock().change_window_height(background_id, 0);
 
-    let test_window_id = WINDOW_CONTROL.lock().allocate((30, 40)).unwrap();
+    let test_window_id = WINDOW_CONTROL.lock().allocate((160, 68)).unwrap();
     WINDOW_CONTROL
         .lock()
         .change_window_height(test_window_id, 1);
-    WINDOW_CONTROL.lock().windows[test_window_id].change_color(Color::White, Color::Red);
+    WINDOW_CONTROL.lock().windows[test_window_id].make_window("wow");
 
-    write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
+    // write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
 
-    WINDOW_CONTROL
-        .lock()
-        .refresh_screen(Some(((0, 0), (150, 100))));
+    WINDOW_CONTROL.lock().refresh_screen(None);
     loop {
         asm::cli();
         // we assume this is single-threaded as static variables are used here

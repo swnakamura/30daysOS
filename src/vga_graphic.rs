@@ -155,7 +155,7 @@ impl<'a> WindowControl<'a> {
             }
         }
         let window_area = self.windows[idx_to_move].area();
-        self.refresh_screen(Some(window_area));
+        // self.refresh_screen(Some(window_area));
     }
 
     pub fn free(&mut self, window_id: usize) {
@@ -336,11 +336,57 @@ impl Window {
     }
     pub fn boxfill(&mut self, color: Color, area: (Point<isize>, Point<isize>)) {
         let (topleft, bottomright) = area;
-        for x in topleft.0..bottomright.0 {
-            for y in topleft.1..bottomright.1 {
+        for x in topleft.0..=bottomright.0 {
+            for y in topleft.1..=bottomright.1 {
                 self.write_pixel_to_buf((x, y), Some(color));
             }
         }
+    }
+    pub fn make_window(&mut self, title: &str) {
+        const CLOSE_BUTTON_WIDTH: usize = 16;
+        const CLOSE_BUTTON_HEIGHT: usize = 14;
+        const CLOSE_BUTTON: [[u8; CLOSE_BUTTON_WIDTH]; CLOSE_BUTTON_HEIGHT] = [
+            *b"OOOOOOOOOOOOOOO@",
+            *b"OQQQQQQQQQQQQQ$@",
+            *b"OQQQQQQQQQQQQQ$@",
+            *b"OQQ@@QQQQ@@QQQ$@",
+            *b"OQQQ@@QQ@@QQQQ$@",
+            *b"OQQQQ@@@@QQQQQ$@",
+            *b"OQQQQQ@@QQQQQQ$@",
+            *b"OQQQQ@@@@QQQQQ$@",
+            *b"OQQQ@@QQ@@QQQQ$@",
+            *b"OQQ@@QQQQ@@QQQ$@",
+            *b"OQQQQQQQQQQQQQ$@",
+            *b"OQQQQQQQQQQQQQ$@",
+            *b"O$$$$$$$$$$$$$$@",
+            *b"@@@@@@@@@@@@@@@@",
+        ];
+
+        let (xsize, ysize) = self.size;
+
+        self.boxfill(Color::LightGrey, ((0, 0), (xsize - 1, 0)));
+        self.boxfill(Color::White, ((1, 1), (xsize - 2, 1)));
+        self.boxfill(Color::LightGrey, ((0, 0), (0, ysize - 1)));
+        self.boxfill(Color::White, ((1, 1), (1, ysize - 2)));
+        self.boxfill(Color::DarkGrey, ((xsize - 2, 1), (xsize - 2, ysize - 2)));
+        self.boxfill(Color::Black, ((xsize - 1, 0), (xsize - 1, ysize - 1)));
+        self.boxfill(Color::LightGrey, ((2, 2), (xsize - 3, ysize - 3)));
+        self.boxfill(Color::Black, ((3, 3), (xsize - 4, 20)));
+        self.boxfill(Color::DarkGrey, ((1, ysize - 2), (xsize - 2, ysize - 2)));
+        self.boxfill(Color::Black, ((0, ysize - 1), (xsize - 1, ysize - 1)));
+        for y in 0..CLOSE_BUTTON_HEIGHT {
+            for x in 0..CLOSE_BUTTON_WIDTH {
+                let c = CLOSE_BUTTON[y][x];
+                let color = match c {
+                    b'@' => Color::Black,
+                    b'$' => Color::DarkGrey,
+                    b'Q' => Color::LightGrey,
+                    _ => Color::White,
+                };
+                self.write_pixel_to_buf((xsize - 21 + x as isize, y as isize + 5), Some(color))
+            }
+        }
+        // WINDOW_CONTROL.lock().refresh_screen(Some(self.area()))
     }
 }
 
