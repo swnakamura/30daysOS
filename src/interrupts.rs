@@ -140,7 +140,6 @@ fn on_mouse_process_complete(mouse_state: MouseState) {
     let (prev_position, _) = WINDOW_CONTROL.lock().windows[*MOUSE_ID].position();
     let movement = (mouse_state.get_x() as isize, mouse_state.get_y() as isize);
 
-    use core::fmt::Write;
     WINDOW_CONTROL.lock().windows[*MOUSE_ID].moveby((movement.0, -movement.1));
 
     let mut new_position = (prev_position.0 + movement.0, prev_position.1 + movement.1);
