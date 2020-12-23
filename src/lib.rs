@@ -188,7 +188,7 @@ pub fn kernel_loop() -> ! {
     use core::fmt::Write;
     use vga_graphic::colors256::Color;
     use vga_graphic::WINDOW_CONTROL;
-    use vga_graphic::{MOUSE_ID, SCREEN_HEIGHT, SCREEN_WIDTH};
+    use vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
     let background_id = WINDOW_CONTROL
         .lock()

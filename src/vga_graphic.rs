@@ -386,7 +386,14 @@ impl Window {
                 self.write_pixel_to_buf((xsize - 21 + x as isize, y as isize + 5), Some(color))
             }
         }
-        // WINDOW_CONTROL.lock().refresh_screen(Some(self.area()))
+        let mut title_writer = TextWriter::new(
+            self.top_left,
+            (self.size.0, FONT_HEIGHT),
+            (0, 0),
+            &mut self.buf,
+        );
+        use core::fmt::Write;
+        write!(title_writer, "{}", title).unwrap();
     }
 }
 
@@ -421,25 +428,78 @@ impl fmt::Write for Window {
         Ok(())
     }
 }
-// #[macro_export]
-// macro_rules! print_graphic {
-//         ($($arg:tt)*) => ($crate::vga_graphic::_print(format_args!($($arg)*)));
-//     }
 
-// #[macro_export]
-// macro_rules! println_graphic {
-//         () => (print!("\n"));
-//         ($($arg:tt)*) => ($crate::print_graphic!("{}\n", format_args!($($arg)*)));
-//     }
+pub struct TextWriter<'a> {
+    buf: &'a mut Vec<Vec<Option<Color>>>,
+    top_left: Point<isize>,
+    size: Point<isize>,
+    column_position: Point<isize>,
+    color: Color,
+}
 
-// #[doc(hidden)]
-// pub fn _print(args: fmt::Arguments) {
-//     use core::fmt::Write;
-//     use x86_64::instructions::interrupts;
-//     interrupts::without_interrupts(|| {
-//         SCREEN_BG.write_fmt(args).unwrap();
-//     });
-// }
+impl<'a> TextWriter<'a> {
+    pub fn new(
+        top_left: Point<isize>,
+        size: Point<isize>,
+        column_position: Point<isize>,
+        buf: &'a mut Vec<Vec<Option<Color>>>,
+    ) -> Self {
+        Self {
+            top_left,
+            size,
+            column_position,
+            buf,
+            color: Color::White,
+        }
+    }
+    pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color) {
+        let font = FONT_DATA[chara as usize];
+        for i in 0..FONT_HEIGHT {
+            let d = font[i as usize];
+            for bit in 0..FONT_WIDTH {
+                if d & 1 << (FONT_WIDTH - bit - 1) != 0 {
+                    self.write_pixel_to_buf(((coord.0 + bit), (coord.1 + i)), Some(color));
+                }
+            }
+        }
+    }
+    fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Option<Color>) {
+        self.buf[coord.1 as usize][coord.0 as usize] = color;
+    }
+    pub fn clear_buf(&mut self) {
+        unimplemented!()
+    }
+}
+
+impl<'a> fmt::Write for TextWriter<'a> {
+    fn write_str(&mut self, string: &str) -> Result<(), core::fmt::Error> {
+        string.chars().for_each(|c| {
+            if c == '\n' {
+                self.column_position = (0, self.column_position.1 + FONT_HEIGHT);
+                return;
+            } else {
+                self.draw_character(
+                    (
+                        self.column_position.0 + self.top_left.0,
+                        self.column_position.1 + self.top_left.1,
+                    ),
+                    c,
+                    self.color,
+                );
+            }
+            self.column_position.0 += FONT_WIDTH;
+            if self.column_position.0 + FONT_WIDTH > self.size.0 {
+                self.column_position.0 = 0;
+                self.column_position.1 += FONT_HEIGHT;
+            }
+            if self.column_position.1 + FONT_HEIGHT > self.size.1 {
+                self.clear_buf();
+                self.column_position = (0, 0);
+            }
+        });
+        Ok(())
+    }
+}
 
 pub fn draw_mouse(
     // window: &mut Window,
