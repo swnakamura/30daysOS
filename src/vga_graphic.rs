@@ -239,7 +239,7 @@ pub struct Window {
     column_position: Point<isize>,
     // column_len: isize,
     // line_len: isize,
-    buf: Vec<Vec<Option<Color>>>,
+    pub buf: Vec<Vec<Option<Color>>>,
     foreground: Color,
     background: Color,
     height: i32,

@@ -187,6 +187,7 @@ pub fn hlt_loop() -> ! {
 pub fn kernel_loop() -> ! {
     use core::fmt::Write;
     use vga_graphic::colors256::Color;
+    use vga_graphic::TextWriter;
     use vga_graphic::WINDOW_CONTROL;
     use vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
@@ -203,9 +204,16 @@ pub fn kernel_loop() -> ! {
         .change_window_height(test_window_id, 1);
     WINDOW_CONTROL.lock().windows[test_window_id].make_window("wow");
 
-    // write!(WINDOW_CONTROL.lock().windows[background_id], "Hello world!").unwrap();
+    use alloc::vec::Vec;
+    let ref_to_buf = &mut unsafe {
+        &mut *(&mut WINDOW_CONTROL.lock().windows[background_id].buf
+            as *mut Vec<Vec<Option<Color>>>)
+    };
+    let mut global_text_writer =
+        TextWriter::new((0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT), (0, 0), ref_to_buf);
 
     WINDOW_CONTROL.lock().refresh_screen(None);
+
     loop {
         asm::cli();
         // we assume this is single-threaded as static variables are used here
@@ -214,11 +222,9 @@ pub fn kernel_loop() -> ! {
                 let c = KEY_BUF.pop().unwrap();
                 asm::sti();
                 use crate::alloc::string::ToString;
-                WINDOW_CONTROL.lock().windows[background_id]
+                global_text_writer
                     .write_str(c.to_string().as_str())
                     .unwrap();
-                let background_area = WINDOW_CONTROL.lock().windows[background_id].line_area();
-                WINDOW_CONTROL.lock().refresh_screen(Some(background_area));
             } else if MOUSE_BUF.status() != 0 {
                 let packet = MOUSE_BUF.pop().unwrap();
                 asm::sti();
