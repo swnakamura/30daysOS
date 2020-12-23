@@ -386,12 +386,8 @@ impl Window {
                 self.write_pixel_to_buf((xsize - 21 + x as isize, y as isize + 5), Some(color))
             }
         }
-        let mut title_writer = TextWriter::new(
-            self.top_left,
-            (self.size.0, FONT_HEIGHT),
-            (0, 0),
-            &mut self.buf,
-        );
+        let mut title_writer =
+            TextWriter::new((5, 2), (self.size.0, FONT_HEIGHT), (0, 0), &mut self.buf);
         use core::fmt::Write;
         write!(title_writer, "{}", title).unwrap();
     }

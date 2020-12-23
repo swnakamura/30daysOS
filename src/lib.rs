@@ -185,6 +185,7 @@ pub fn hlt_loop() -> ! {
 }
 
 pub fn kernel_loop() -> ! {
+    use alloc::vec::Vec;
     use core::fmt::Write;
     use vga_graphic::colors256::Color;
     use vga_graphic::TextWriter;
@@ -197,20 +198,26 @@ pub fn kernel_loop() -> ! {
         .unwrap();
     WINDOW_CONTROL.lock().windows[background_id].change_color(Color::White, Color::Cyan);
     WINDOW_CONTROL.lock().change_window_height(background_id, 0);
-
-    let test_window_id = WINDOW_CONTROL.lock().allocate((160, 68)).unwrap();
-    WINDOW_CONTROL
-        .lock()
-        .change_window_height(test_window_id, 1);
-    WINDOW_CONTROL.lock().windows[test_window_id].make_window("wow");
-
-    use alloc::vec::Vec;
     let ref_to_buf = &mut unsafe {
         &mut *(&mut WINDOW_CONTROL.lock().windows[background_id].buf
             as *mut Vec<Vec<Option<Color>>>)
     };
     let mut global_text_writer =
         TextWriter::new((0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT), (0, 0), ref_to_buf);
+
+    let test_window_id = WINDOW_CONTROL.lock().allocate((160, 68)).unwrap();
+    WINDOW_CONTROL
+        .lock()
+        .change_window_height(test_window_id, 1);
+    WINDOW_CONTROL.lock().windows[test_window_id].make_window("window");
+    WINDOW_CONTROL.lock().windows[test_window_id].moveto((30, 30));
+    let ref_to_buf = &mut unsafe {
+        &mut *(&mut WINDOW_CONTROL.lock().windows[test_window_id].buf
+            as *mut Vec<Vec<Option<Color>>>)
+    };
+    let mut text_window_writer = TextWriter::new((3, 25), (159, 67), (0, 0), ref_to_buf);
+    write!(text_window_writer, "Welcome to ").unwrap();
+    write!(text_window_writer, "Haribote-OS!").unwrap();
 
     WINDOW_CONTROL.lock().refresh_screen(None);
 
