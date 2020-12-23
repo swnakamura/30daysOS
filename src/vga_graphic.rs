@@ -154,7 +154,7 @@ impl<'a> WindowControl<'a> {
                 self.top += 1;
             }
         }
-        let window_area = self.windows[idx_to_move].area();
+        // let window_area = self.windows[idx_to_move].area();
         // self.refresh_screen(Some(window_area));
     }
 
@@ -371,7 +371,7 @@ impl Window {
         self.boxfill(Color::DarkGrey, ((xsize - 2, 1), (xsize - 2, ysize - 2)));
         self.boxfill(Color::Black, ((xsize - 1, 0), (xsize - 1, ysize - 1)));
         self.boxfill(Color::LightGrey, ((2, 2), (xsize - 3, ysize - 3)));
-        self.boxfill(Color::Black, ((3, 3), (xsize - 4, 20)));
+        self.boxfill(Color::Blue, ((3, 3), (xsize - 4, 20)));
         self.boxfill(Color::DarkGrey, ((1, ysize - 2), (xsize - 2, ysize - 2)));
         self.boxfill(Color::Black, ((0, ysize - 1), (xsize - 1, ysize - 1)));
         for y in 0..CLOSE_BUTTON_HEIGHT {
