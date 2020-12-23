@@ -215,7 +215,7 @@ pub fn kernel_loop() -> ! {
                 WINDOW_CONTROL.lock().windows[background_id]
                     .write_str(c.to_string().as_str())
                     .unwrap();
-                let background_area = WINDOW_CONTROL.lock().windows[background_id].area();
+                let background_area = WINDOW_CONTROL.lock().windows[background_id].line_area();
                 WINDOW_CONTROL.lock().refresh_screen(Some(background_area));
             } else if MOUSE_BUF.status() != 0 {
                 let packet = MOUSE_BUF.pop().unwrap();

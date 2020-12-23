@@ -270,6 +270,15 @@ impl Window {
             (self.top_left.0 + self.size.0, self.top_left.1 + self.size.1),
         )
     }
+    pub fn line_area(&self) -> (Point<isize>, Point<isize>) {
+        (
+            (self.top_left.0, self.column_position.1),
+            (
+                self.top_left.0 + self.size.0,
+                self.column_position.1 + FONT_HEIGHT,
+            ),
+        )
+    }
     pub fn adjust(&mut self, new_size: Point<isize>) {
         self.size = new_size;
         self.buf = Self::create_buffer(new_size, self.background);
