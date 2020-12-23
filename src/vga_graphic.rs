@@ -177,7 +177,7 @@ impl<'a> WindowControl<'a> {
                 area_topleft.1..area_bottomright.1,
             )
         } else {
-            (0..0, 0..0)
+            (0..SCREEN_WIDTH, 0..SCREEN_HEIGHT)
         };
         for y in yrange.clone() {
             for x in xrange.clone() {
@@ -314,7 +314,7 @@ impl Window {
         }
     }
     pub fn boxfill(&mut self, color: Color16, area: (Point<isize>, Point<isize>)) {
-        let (topleft,bottomright) = area;
+        let (topleft, bottomright) = area;
         for x in topleft.0..bottomright.0 {
             for y in topleft.1..bottomright.1 {
                 self.write_pixel_to_buf((x, y), Some(color));
