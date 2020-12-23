@@ -84,7 +84,7 @@ pub mod bump {
 }
 
 pub const HEAP_START: usize = 0x4444_4444_0000;
-pub const HEAP_SIZE: usize = 100 * 1024;
+pub const HEAP_SIZE: usize = 1000 * 1024;
 
 use fixed_size_block::FixedSizeBlockAllocator;
 #[global_allocator]
