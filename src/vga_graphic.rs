@@ -3,15 +3,18 @@ use alloc::vec::Vec;
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
-use vga::colors::Color16;
 use vga::drawing::Point;
-use vga::writers::{Graphics640x480x16, GraphicsWriter};
+use vga::writers::{Graphics320x200x256, GraphicsWriter};
 
-pub const SCREEN_WIDTH: isize = 640;
-pub const SCREEN_HEIGHT: isize = 480;
+pub const SCREEN_WIDTH: isize = 320;
+pub const SCREEN_HEIGHT: isize = 200;
 
 pub const CURSOR_WIDTH: usize = 16;
 pub const CURSOR_HEIGHT: usize = 16;
+
+pub mod colors256;
+
+use colors256::Color;
 
 const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
     *b"**************..",
@@ -33,10 +36,10 @@ const CURSOR: [[u8; CURSOR_WIDTH]; CURSOR_HEIGHT] = [
 ];
 
 lazy_static! {
-    pub static ref MODE: Graphics640x480x16 = {
-        let mode = Graphics640x480x16::new();
+    pub static ref MODE: Graphics320x200x256 = {
+        let mode = Graphics320x200x256::new();
         mode.set_mode();
-        mode.clear_screen(Color16::Black);
+        mode.clear_screen(Color::Black as u8);
         mode
     };
     pub static ref WINDOW_CONTROL: Mutex<WindowControl<'static>> =
@@ -49,8 +52,8 @@ lazy_static! {
         for y in 0..CURSOR_HEIGHT {
             for x in 0..CURSOR_WIDTH {
                 let color = match CURSOR[x][y] {
-                    b'*' => Some(Color16::Black),
-                    b'O' => Some(Color16::White),
+                    b'*' => Some(Color::Black),
+                    b'O' => Some(Color::White),
                     _ => None,
                 };
                 WINDOW_CONTROL.lock().windows[mouse_id]
@@ -76,7 +79,7 @@ bitflags! {
 }
 
 pub struct WindowControl<'a> {
-    pub mode: &'a Graphics640x480x16,
+    pub mode: &'a Graphics320x200x256,
     /// pointers to the registered windows.
     pub windows: Vec<Window>,
     /// map height to windows index. windows with height==-1 is not mapped.
@@ -85,7 +88,7 @@ pub struct WindowControl<'a> {
 }
 
 impl<'a> WindowControl<'a> {
-    pub fn new(mode: &'a Graphics640x480x16) -> Self {
+    pub fn new(mode: &'a Graphics320x200x256) -> Self {
         let mut windows = Vec::with_capacity(MAX_WIN_NUM);
         for _ in 0..MAX_WIN_NUM {
             windows.push(Window::new((0, 0), (0, 0), (0, 0)));
@@ -184,7 +187,7 @@ impl<'a> WindowControl<'a> {
             for x in xrange.clone() {
                 {
                     if 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT {
-                        MODE.set_pixel(x as usize, y as usize, Color16::Black);
+                        MODE.set_pixel(x as usize, y as usize, Color::Black as u8);
                     }
                 }
             }
@@ -220,7 +223,7 @@ impl<'a> WindowControl<'a> {
                         buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
                     {
                         if 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT {
-                            MODE.set_pixel(x as usize, y as usize, row);
+                            MODE.set_pixel(x as usize, y as usize, row as u8);
                         }
                     }
                 }
@@ -236,9 +239,9 @@ pub struct Window {
     column_position: Point<isize>,
     // column_len: isize,
     // line_len: isize,
-    buf: Vec<Vec<Option<Color16>>>,
-    foreground: Color16,
-    background: Color16,
+    buf: Vec<Vec<Option<Color>>>,
+    foreground: Color,
+    background: Color,
     height: i32,
     /// 透明/色番号（color and invisible）
     // col_inv: i32,
@@ -248,11 +251,11 @@ pub struct Window {
 impl Window {
     pub fn new(top_left: Point<isize>, size: Point<isize>, column_position: Point<isize>) -> Self {
         Self {
-            foreground: Color16::White,
-            background: Color16::Black,
+            foreground: Color::White,
+            background: Color::Black,
             top_left,
             size,
-            buf: Self::create_buffer(size, Color16::Black),
+            buf: Self::create_buffer(size, Color::Black),
             column_position,
             // col_inv: 0,
             height: 0,
@@ -295,7 +298,7 @@ impl Window {
         self.top_left.1 = movement.1;
         self.top_left.1 = clip(self.top_left.1, 0, SCREEN_HEIGHT);
     }
-    pub fn change_color(&mut self, foreground: Color16, background: Color16) {
+    pub fn change_color(&mut self, foreground: Color, background: Color) {
         self.foreground = foreground;
         self.background = background;
         for line in &mut self.buf {
@@ -304,12 +307,12 @@ impl Window {
             }
         }
     }
-    fn create_buffer(size: Point<isize>, background: Color16) -> Vec<Vec<Option<Color16>>> {
+    fn create_buffer(size: Point<isize>, background: Color) -> Vec<Vec<Option<Color>>> {
         use alloc::vec;
         vec![vec![Some(background); size.0 as usize]; size.1 as usize]
     }
 
-    pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color16) {
+    pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color) {
         let font = FONT_DATA[chara as usize];
         for i in 0..FONT_HEIGHT {
             let d = font[i as usize];
@@ -321,7 +324,7 @@ impl Window {
         }
     }
     #[inline(always)]
-    fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Option<Color16>) {
+    fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Option<Color>) {
         self.buf[coord.1 as usize][coord.0 as usize] = color;
     }
     fn clear_buf(&mut self) {
@@ -331,7 +334,7 @@ impl Window {
             }
         }
     }
-    pub fn boxfill(&mut self, color: Color16, area: (Point<isize>, Point<isize>)) {
+    pub fn boxfill(&mut self, color: Color, area: (Point<isize>, Point<isize>)) {
         let (topleft, bottomright) = area;
         for x in topleft.0..bottomright.0 {
             for y in topleft.1..bottomright.1 {
@@ -396,7 +399,7 @@ pub fn draw_mouse(
     // window: &mut Window,
     location: &Point<isize>,
     prev_location: &Point<isize>,
-    bc: &Color16,
+    bc: &Color,
 ) {
     // overwrite previous location
     for y in 0..CURSOR_HEIGHT {
@@ -405,7 +408,7 @@ pub fn draw_mouse(
             MODE.set_pixel(
                 x + prev_location.0 as usize,
                 y + prev_location.1 as usize,
-                color,
+                color as u8,
             );
         }
     }
@@ -413,11 +416,15 @@ pub fn draw_mouse(
     for y in 0..CURSOR_HEIGHT {
         for x in 0..CURSOR_WIDTH {
             let color = match CURSOR[x][y] {
-                b'*' => Color16::Black,
-                b'O' => Color16::White,
+                b'*' => Color::Black,
+                b'O' => Color::White,
                 _ => *bc,
             };
-            MODE.set_pixel(x + location.0 as usize, y + location.1 as usize, color);
+            MODE.set_pixel(
+                x + location.0 as usize,
+                y + location.1 as usize,
+                color as u8,
+            );
         }
     }
 }
