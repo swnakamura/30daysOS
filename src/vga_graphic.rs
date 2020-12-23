@@ -434,7 +434,7 @@ pub struct TextWriter<'a> {
     buf: &'a mut Vec<Vec<Option<Color>>>,
     top_left: Point<isize>,
     size: Point<isize>,
-    column_position: Point<isize>,
+    pub column_position: Point<isize>,
     color: Color,
 }
 
@@ -469,7 +469,11 @@ impl<'a> TextWriter<'a> {
         self.buf[coord.1 as usize][coord.0 as usize] = color;
     }
     pub fn clear_buf(&mut self) {
-        unimplemented!()
+        for i in 0..self.buf.len() {
+            for j in 0..self.buf[i].len() {
+                self.buf[i][j] = Some(Color::LightGrey);
+            }
+        }
     }
 }
 
@@ -490,11 +494,11 @@ impl<'a> fmt::Write for TextWriter<'a> {
                 );
             }
             self.column_position.0 += FONT_WIDTH;
-            if self.column_position.0 + FONT_WIDTH > self.size.0 {
+            if self.column_position.0 + self.top_left.0 + FONT_WIDTH > self.size.0 {
                 self.column_position.0 = 0;
                 self.column_position.1 += FONT_HEIGHT;
             }
-            if self.column_position.1 + FONT_HEIGHT > self.size.1 {
+            if self.column_position.1 + self.top_left.1 + FONT_HEIGHT > self.size.1 {
                 self.clear_buf();
                 self.column_position = (0, 0);
             }

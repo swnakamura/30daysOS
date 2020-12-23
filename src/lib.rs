@@ -228,6 +228,7 @@ pub fn kernel_loop() -> ! {
 
     WINDOW_CONTROL.lock().refresh_screen(None);
 
+    let mut count = 0;
     loop {
         asm::cli();
         // we assume this is single-threaded as static variables are used here
@@ -244,7 +245,14 @@ pub fn kernel_loop() -> ! {
                 asm::sti();
                 crate::interrupts::MOUSE.lock().process_packet(packet);
             } else {
-                asm::stihlt();
+                asm::sti();
+                text_window_writer.clear_buf();
+                text_window_writer.column_position = (0, 0);
+                write!(text_window_writer, "{}", count).unwrap();
+                count += 1;
+                WINDOW_CONTROL
+                    .lock()
+                    .refresh_screen(Some(((3 + 30, 25 + 30), (3 + 30 + 30, 25 + 30 + 16))));
             }
         }
     }
