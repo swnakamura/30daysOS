@@ -386,8 +386,13 @@ impl Window {
                 self.write_pixel_to_buf((xsize - 21 + x as isize, y as isize + 5), Some(color))
             }
         }
-        let mut title_writer =
-            TextWriter::new((5, 2), (self.size.0, FONT_HEIGHT), (0, 0), &mut self.buf);
+        let mut title_writer = TextWriter::new(
+            (5, 2),
+            (self.size.0, FONT_HEIGHT),
+            (0, 0),
+            &mut self.buf,
+            Color::White,
+        );
         use core::fmt::Write;
         write!(title_writer, "{}", title).unwrap();
     }
@@ -439,13 +444,14 @@ impl<'a> TextWriter<'a> {
         size: Point<isize>,
         column_position: Point<isize>,
         buf: &'a mut Vec<Vec<Option<Color>>>,
+        color: Color,
     ) -> Self {
         Self {
             top_left,
             size,
             column_position,
             buf,
-            color: Color::White,
+            color,
         }
     }
     pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color) {

@@ -202,8 +202,13 @@ pub fn kernel_loop() -> ! {
         &mut *(&mut WINDOW_CONTROL.lock().windows[background_id].buf
             as *mut Vec<Vec<Option<Color>>>)
     };
-    let mut global_text_writer =
-        TextWriter::new((0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT), (0, 0), ref_to_buf);
+    let mut global_text_writer = TextWriter::new(
+        (0, 0),
+        (SCREEN_WIDTH, SCREEN_HEIGHT),
+        (0, 0),
+        ref_to_buf,
+        Color::White,
+    );
 
     let test_window_id = WINDOW_CONTROL.lock().allocate((160, 68)).unwrap();
     WINDOW_CONTROL
@@ -215,7 +220,9 @@ pub fn kernel_loop() -> ! {
         &mut *(&mut WINDOW_CONTROL.lock().windows[test_window_id].buf
             as *mut Vec<Vec<Option<Color>>>)
     };
-    let mut text_window_writer = TextWriter::new((3, 25), (159, 67), (0, 0), ref_to_buf);
+
+    let mut text_window_writer =
+        TextWriter::new((3, 25), (159, 67), (0, 0), ref_to_buf, Color::Black);
     write!(text_window_writer, "Welcome to ").unwrap();
     write!(text_window_writer, "Haribote-OS!").unwrap();
 
