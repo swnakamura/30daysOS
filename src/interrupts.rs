@@ -150,9 +150,11 @@ fn on_mouse_process_complete(mouse_state: MouseState) {
     let max_x = core::cmp::max(prev_position.0, new_position.0 as isize) + CURSOR_WIDTH as isize;
     let min_y = core::cmp::min(prev_position.1, new_position.1 as isize);
     let max_y = core::cmp::max(prev_position.1, new_position.1 as isize) + CURSOR_HEIGHT as isize;
-    WINDOW_CONTROL
-        .lock()
-        .refresh_screen(Some(((min_x, min_y), (max_x, max_y))));
+    let mouse_window_height = WINDOW_CONTROL.lock().windows[*MOUSE_ID].height as isize;
+    WINDOW_CONTROL.lock().refresh_screen(
+        Some(((min_x, min_y), (max_x, max_y))),
+        Some(mouse_window_height),
+    );
 }
 
 pub const PIC_1_OFFSET: u8 = 0x20;

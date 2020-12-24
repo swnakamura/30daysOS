@@ -226,7 +226,7 @@ pub fn kernel_loop() -> ! {
     write!(text_window_writer, "Welcome to ").unwrap();
     write!(text_window_writer, "Haribote-OS!").unwrap();
 
-    WINDOW_CONTROL.lock().refresh_screen(None);
+    WINDOW_CONTROL.lock().refresh_screen(None, None);
 
     let mut count = 0;
     loop {
@@ -250,9 +250,12 @@ pub fn kernel_loop() -> ! {
                 text_window_writer.column_position = (0, 0);
                 write!(text_window_writer, "{}", count).unwrap();
                 count += 1;
-                WINDOW_CONTROL
-                    .lock()
-                    .refresh_screen(Some(((3 + 30, 25 + 30), (3 + 30 + 30, 25 + 30 + 16))));
+                let test_window_height =
+                    WINDOW_CONTROL.lock().windows[test_window_id].height as isize;
+                WINDOW_CONTROL.lock().refresh_screen(
+                    Some(((3 + 30, 25 + 30), (3 + 30 + 30, 25 + 30 + 16))),
+                    Some(test_window_height),
+                );
             }
         }
     }

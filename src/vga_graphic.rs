@@ -169,11 +169,17 @@ impl<'a> WindowControl<'a> {
     /// If refresh_area is not given, whole screen is refreshed.
     /// 1. refresh with black
     /// 2. refresh with windows
-    pub fn refresh_screen(&mut self, refresh_area: Option<(Point<isize>, Point<isize>)>) {
+    pub fn refresh_screen(
+        &mut self,
+        refresh_area: Option<(Point<isize>, Point<isize>)>,
+        refreshed_window_height: Option<isize>,
+    ) {
         use core::cmp::{max, min};
 
+        let refreshed_window_height = refreshed_window_height.unwrap_or(0);
+
         // refresh with windows
-        for h in 0..=self.top {
+        for h in refreshed_window_height..=self.top {
             let window = &self.windows[self.height_to_windows_idx[h as usize]];
             let buf = &window.buf;
             let buffer_topleft = window.top_left;
@@ -220,7 +226,7 @@ pub struct Window {
     pub buf: Vec<Vec<Option<Color>>>,
     foreground: Color,
     background: Color,
-    height: i32,
+    pub height: i32,
     /// 透明/色番号（color and invisible）
     // col_inv: i32,
     flag: WinFlag,
