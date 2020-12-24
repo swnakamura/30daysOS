@@ -172,27 +172,6 @@ impl<'a> WindowControl<'a> {
     pub fn refresh_screen(&mut self, refresh_area: Option<(Point<isize>, Point<isize>)>) {
         use core::cmp::{max, min};
 
-        // refresh with black
-        let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
-            let area_topleft = refresh_area.0;
-            let area_bottomright = refresh_area.1;
-            (
-                area_topleft.0..area_bottomright.0,
-                area_topleft.1..area_bottomright.1,
-            )
-        } else {
-            (0..SCREEN_WIDTH, 0..SCREEN_HEIGHT)
-        };
-        for y in yrange.clone() {
-            for x in xrange.clone() {
-                {
-                    if 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT {
-                        MODE.set_pixel(x as usize, y as usize, Color::Black as u8);
-                    }
-                }
-            }
-        }
-
         // refresh with windows
         for h in 0..=self.top {
             let window = &self.windows[self.height_to_windows_idx[h as usize]];
@@ -229,7 +208,6 @@ impl<'a> WindowControl<'a> {
                 }
             }
         }
-        // TODO: update mouse window
     }
 }
 
