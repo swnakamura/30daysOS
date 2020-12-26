@@ -66,7 +66,7 @@ lazy_static! {
 }
 
 pub fn graphic_mode() {
-    // Need this code to evaluate MOUSE_ID
+    // this code is needed to evaluate MOUSE_ID
     crate::println!("{:?}", *MOUSE_ID);
 }
 
