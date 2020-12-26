@@ -3,7 +3,6 @@
 #![feature(asm)]
 #![feature(custom_test_frameworks)]
 #![test_runner(lib::test_runner)]
-#![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
 extern crate rlibc;
@@ -12,7 +11,7 @@ use core::panic::PanicInfo;
 
 use bootloader::{entry_point, BootInfo};
 use haribote as lib;
-use lib::println;
+use lib::{println, serial_println};
 
 entry_point!(kernel_main);
 
@@ -29,13 +28,18 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
     allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
-    boot_info
-        .memory_map
-        .iter()
-        .for_each(|x| println!("{:?}", x));
-
     #[cfg(test)]
-    test_main();
+    {
+        serial_println!("{}", "#".repeat(100));
+        serial_println!("Displaying memory regions...");
+        boot_info
+            .memory_map
+            .iter()
+            .for_each(|x| serial_println!("{:?}", x));
+        serial_println!("{}", "#".repeat(100));
+
+        lib::exit_qemu(lib::QemuExitCode::Success);
+    }
 
     haribote::vga_graphic::graphic_mode();
 
