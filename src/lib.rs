@@ -102,7 +102,7 @@ entry_point!(test_kernel_main);
 fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
-    kernel_loop(None)
+    kernel_loop()
 }
 
 #[cfg(test)]
