@@ -202,14 +202,8 @@ pub fn kernel_loop() -> ! {
     WINDOW_CONTROL
         .lock()
         .change_window_height(test_window_id, 1);
-    WINDOW_CONTROL.lock().windows[test_window_id].make_window("window");
+    WINDOW_CONTROL.lock().windows[test_window_id].make_window("counting up...");
     WINDOW_CONTROL.lock().windows[test_window_id].moveto((30, 30));
-    write!(WINDOW_CONTROL.lock().windows[test_window_id], "Welcome to ").unwrap();
-    write!(
-        WINDOW_CONTROL.lock().windows[test_window_id],
-        "Haribote-OS!"
-    )
-    .unwrap();
 
     WINDOW_CONTROL.lock().refresh_screen(None, None);
     WINDOW_CONTROL.lock().refresh_window_map(None, None);
@@ -235,6 +229,13 @@ pub fn kernel_loop() -> ! {
                 crate::interrupts::MOUSE.lock().process_packet(packet);
             } else {
                 asm::sti();
+
+                let initial_column_position =
+                    WINDOW_CONTROL.lock().windows[test_window_id].initial_column_position;
+                WINDOW_CONTROL.lock().windows[test_window_id].column_position =
+                    initial_column_position;
+                WINDOW_CONTROL.lock().windows[test_window_id]
+                    .boxfill(Color::LightGrey, ((3, 23), (3 + 100, 23 + 16)));
                 write!(WINDOW_CONTROL.lock().windows[test_window_id], "{}", count).unwrap();
                 count += 1;
                 let test_window_height =

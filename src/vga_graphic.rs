@@ -274,10 +274,11 @@ impl<'a> WindowControl<'a> {
 pub struct Window {
     top_left: Point<isize>,
     size: Point<isize>,
-    column_position: Point<isize>,
+    pub column_position: Point<isize>,
+    pub initial_column_position: Point<isize>,
     pub buf: Vec<Vec<Option<Color>>>,
     foreground: Color,
-    background: Color,
+    pub background: Color,
     pub height: i32,
     flag: WinFlag,
 }
@@ -291,6 +292,7 @@ impl Window {
             size,
             buf: Self::create_buffer(size, Color::Black),
             column_position,
+            initial_column_position: (3, 23),
             height: 0,
             flag: WinFlag::empty(),
         }
@@ -374,6 +376,7 @@ impl Window {
             }
         }
     }
+    /// set up this window as background
     pub fn make_background(&mut self) {
         let (xsize, ysize) = self.size;
         use Color::*;
@@ -400,6 +403,7 @@ impl Window {
         self.boxfill(White, ((xsize - 47, ysize - 3), (xsize - 4, ysize - 3)));
         self.boxfill(White, ((xsize - 3, ysize - 24), (xsize - 3, ysize - 3)));
     }
+    /// set up this window as ordinary window
     pub fn make_window(&mut self, title: &str) {
         const CLOSE_BUTTON_WIDTH: usize = 16;
         const CLOSE_BUTTON_HEIGHT: usize = 14;
@@ -445,7 +449,9 @@ impl Window {
             }
         }
         use core::fmt::Write;
+        self.column_position = (2, 2);
         write!(self, "{}", title).unwrap();
+        self.column_position = self.initial_column_position;
     }
 }
 
@@ -458,7 +464,10 @@ impl fmt::Write for Window {
     fn write_str(&mut self, string: &str) -> Result<(), core::fmt::Error> {
         string.chars().for_each(|c| {
             if c == '\n' {
-                self.column_position = (0, self.column_position.1 + FONT_HEIGHT);
+                self.column_position = (
+                    self.initial_column_position.0,
+                    self.column_position.1 + FONT_HEIGHT,
+                );
                 return;
             } else {
                 self.draw_character(
@@ -469,12 +478,12 @@ impl fmt::Write for Window {
             }
             self.column_position.0 += FONT_WIDTH;
             if self.column_position.0 + FONT_WIDTH > self.size.0 {
-                self.column_position.0 = 0;
+                self.column_position.0 = self.initial_column_position.0;
                 self.column_position.1 += FONT_HEIGHT;
             }
             if self.column_position.1 + FONT_HEIGHT > self.size.1 {
                 self.clear_buf();
-                self.column_position = (0, 0);
+                self.column_position = self.initial_column_position;
             }
         });
         Ok(())
