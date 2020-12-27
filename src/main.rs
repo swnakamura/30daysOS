@@ -11,7 +11,7 @@ use core::panic::PanicInfo;
 
 use bootloader::{entry_point, BootInfo};
 use haribote as lib;
-use lib::{println, serial_println};
+use lib::println;
 
 entry_point!(kernel_main);
 
@@ -30,7 +30,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     #[cfg(test)]
     {
+        use lib::serial_println;
         serial_println!("{}", "#".repeat(100));
+        serial_println!("memory_offset:{:?}", phys_mem_offset);
         serial_println!("Displaying memory regions...");
         boot_info
             .memory_map

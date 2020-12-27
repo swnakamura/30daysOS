@@ -292,7 +292,6 @@ impl Window {
         }
     }
     fn create_buffer(size: Point<isize>, background: Color) -> Vec<Vec<Option<Color>>> {
-        use alloc::vec;
         vec![vec![Some(background); size.0 as usize]; size.1 as usize]
     }
 
