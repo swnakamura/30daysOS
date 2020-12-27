@@ -1,4 +1,5 @@
 use crate::util::clip;
+use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt;
 use lazy_static::lazy_static;
@@ -85,6 +86,8 @@ pub struct WindowControl<'a> {
     /// map height to windows index. windows with height==-1 is not mapped.
     height_to_windows_idx: [usize; MAX_WIN_NUM],
     top: isize,
+    // map: [[isize; MAP_WIDTH as usize]; MAP_HEIGHT as usize],
+    map: Vec<Vec<isize>>,
 }
 
 impl<'a> WindowControl<'a> {
@@ -98,6 +101,7 @@ impl<'a> WindowControl<'a> {
             windows,
             height_to_windows_idx: [0; MAX_WIN_NUM],
             top: -1,
+            map: vec![vec![0; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize],
         }
     }
     /// register a new window
@@ -207,8 +211,58 @@ impl<'a> WindowControl<'a> {
                     if let Some(row) =
                         buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
                     {
-                        if 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT {
+                        if 0 <= x
+                            && x < SCREEN_WIDTH
+                            && 0 <= y
+                            && y < SCREEN_HEIGHT
+                            && self.map[y as usize][x as usize] == h
+                        {
                             MODE.set_pixel(x as usize, y as usize, row as u8);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    pub fn refresh_window_map(
+        &mut self,
+        refresh_area: Option<(Point<isize>, Point<isize>)>,
+        refreshed_window_height: Option<isize>,
+    ) {
+        use core::cmp::{max, min};
+        let refreshed_window_height = refreshed_window_height.unwrap_or(0);
+
+        for h in refreshed_window_height..=self.top {
+            let window = &self.windows[self.height_to_windows_idx[h as usize]];
+            let buf = &window.buf;
+            let buffer_topleft = window.top_left;
+            let buffer_bottomright = (
+                window.top_left.0 + window.size.0,
+                window.top_left.1 + window.size.1,
+            );
+            let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
+                let area_topleft = refresh_area.0;
+                let area_bottomright = refresh_area.1;
+                (
+                    max(buffer_topleft.0, area_topleft.0)
+                        ..min(buffer_bottomright.0, area_bottomright.0),
+                    max(buffer_topleft.1, area_topleft.1)
+                        ..min(buffer_bottomright.1, area_bottomright.1),
+                )
+            } else {
+                (
+                    buffer_topleft.0..buffer_topleft.0 + window.size.0,
+                    buffer_topleft.1..buffer_topleft.1 + window.size.1,
+                )
+            };
+            for y in yrange.clone() {
+                for x in xrange.clone() {
+                    // if buffer is not none at this pixel, then screen should be updated with the buffer
+                    if let Some(_) =
+                        buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
+                    {
+                        if 0 <= x && x < SCREEN_WIDTH && 0 <= y && y < SCREEN_HEIGHT {
+                            self.map[y as usize][x as usize] = h;
                         }
                     }
                 }
@@ -221,14 +275,10 @@ pub struct Window {
     top_left: Point<isize>,
     size: Point<isize>,
     column_position: Point<isize>,
-    // column_len: isize,
-    // line_len: isize,
     pub buf: Vec<Vec<Option<Color>>>,
     foreground: Color,
     background: Color,
     pub height: i32,
-    /// 透明/色番号（color and invisible）
-    // col_inv: i32,
     flag: WinFlag,
 }
 
@@ -241,7 +291,6 @@ impl Window {
             size,
             buf: Self::create_buffer(size, Color::Black),
             column_position,
-            // col_inv: 0,
             height: 0,
             flag: WinFlag::empty(),
         }
@@ -325,6 +374,32 @@ impl Window {
             }
         }
     }
+    pub fn make_background(&mut self) {
+        let (xsize, ysize) = self.size;
+        use Color::*;
+        self.boxfill(Cyan, ((0, 0), (xsize - 1, ysize - 29)));
+        self.boxfill(LightGrey, ((0, ysize - 28), (xsize - 1, ysize - 28)));
+        self.boxfill(White, ((0, ysize - 27), (xsize - 1, ysize - 27)));
+        self.boxfill(LightGrey, ((0, ysize - 26), (xsize - 1, ysize - 1)));
+
+        self.boxfill(White, ((3, ysize - 24), (59, ysize - 24)));
+        self.boxfill(White, ((2, ysize - 24), (2, ysize - 4)));
+        self.boxfill(DarkGrey, ((3, ysize - 4), (59, ysize - 4)));
+        self.boxfill(DarkGrey, ((59, ysize - 23), (59, ysize - 5)));
+        self.boxfill(Black, ((2, ysize - 3), (59, ysize - 3)));
+        self.boxfill(Black, ((60, ysize - 24), (60, ysize - 3)));
+
+        self.boxfill(
+            DarkGrey,
+            ((xsize - 47, ysize - 24), (xsize - 4, ysize - 24)),
+        );
+        self.boxfill(
+            DarkGrey,
+            ((xsize - 47, ysize - 23), (xsize - 47, ysize - 4)),
+        );
+        self.boxfill(White, ((xsize - 47, ysize - 3), (xsize - 4, ysize - 3)));
+        self.boxfill(White, ((xsize - 3, ysize - 24), (xsize - 3, ysize - 3)));
+    }
     pub fn make_window(&mut self, title: &str) {
         const CLOSE_BUTTON_WIDTH: usize = 16;
         const CLOSE_BUTTON_HEIGHT: usize = 14;
@@ -369,15 +444,8 @@ impl Window {
                 self.write_pixel_to_buf((xsize - 21 + x as isize, y as isize + 5), Some(color))
             }
         }
-        let mut title_writer = TextWriter::new(
-            (5, 2),
-            (self.size.0, FONT_HEIGHT),
-            (0, 0),
-            &mut self.buf,
-            Color::White,
-        );
         use core::fmt::Write;
-        write!(title_writer, "{}", title).unwrap();
+        write!(self, "{}", title).unwrap();
     }
 }
 
@@ -405,83 +473,6 @@ impl fmt::Write for Window {
                 self.column_position.1 += FONT_HEIGHT;
             }
             if self.column_position.1 + FONT_HEIGHT > self.size.1 {
-                self.clear_buf();
-                self.column_position = (0, 0);
-            }
-        });
-        Ok(())
-    }
-}
-
-pub struct TextWriter<'a> {
-    buf: &'a mut Vec<Vec<Option<Color>>>,
-    top_left: Point<isize>,
-    size: Point<isize>,
-    pub column_position: Point<isize>,
-    color: Color,
-}
-
-impl<'a> TextWriter<'a> {
-    pub fn new(
-        top_left: Point<isize>,
-        size: Point<isize>,
-        column_position: Point<isize>,
-        buf: &'a mut Vec<Vec<Option<Color>>>,
-        color: Color,
-    ) -> Self {
-        Self {
-            top_left,
-            size,
-            column_position,
-            buf,
-            color,
-        }
-    }
-    pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color) {
-        let font = FONT_DATA[chara as usize];
-        for i in 0..FONT_HEIGHT {
-            let d = font[i as usize];
-            for bit in 0..FONT_WIDTH {
-                if d & 1 << (FONT_WIDTH - bit - 1) != 0 {
-                    self.write_pixel_to_buf(((coord.0 + bit), (coord.1 + i)), Some(color));
-                }
-            }
-        }
-    }
-    fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Option<Color>) {
-        self.buf[coord.1 as usize][coord.0 as usize] = color;
-    }
-    pub fn clear_buf(&mut self) {
-        for i in 0..self.buf.len() {
-            for j in 0..self.buf[i].len() {
-                self.buf[i][j] = Some(Color::LightGrey);
-            }
-        }
-    }
-}
-
-impl<'a> fmt::Write for TextWriter<'a> {
-    fn write_str(&mut self, string: &str) -> Result<(), core::fmt::Error> {
-        string.chars().for_each(|c| {
-            if c == '\n' {
-                self.column_position = (0, self.column_position.1 + FONT_HEIGHT);
-                return;
-            } else {
-                self.draw_character(
-                    (
-                        self.column_position.0 + self.top_left.0,
-                        self.column_position.1 + self.top_left.1,
-                    ),
-                    c,
-                    self.color,
-                );
-            }
-            self.column_position.0 += FONT_WIDTH;
-            if self.column_position.0 + self.top_left.0 + FONT_WIDTH > self.size.0 {
-                self.column_position.0 = 0;
-                self.column_position.1 += FONT_HEIGHT;
-            }
-            if self.column_position.1 + self.top_left.1 + FONT_HEIGHT > self.size.1 {
                 self.clear_buf();
                 self.column_position = (0, 0);
             }

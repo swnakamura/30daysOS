@@ -185,10 +185,8 @@ pub fn hlt_loop() -> ! {
 }
 
 pub fn kernel_loop() -> ! {
-    use alloc::vec::Vec;
     use core::fmt::Write;
     use vga_graphic::colors256::Color;
-    use vga_graphic::TextWriter;
     use vga_graphic::WINDOW_CONTROL;
     use vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
@@ -197,18 +195,8 @@ pub fn kernel_loop() -> ! {
         .allocate((SCREEN_WIDTH, SCREEN_HEIGHT))
         .unwrap();
     WINDOW_CONTROL.lock().windows[background_id].change_color(Color::White, Color::Cyan);
+    WINDOW_CONTROL.lock().windows[background_id].make_background();
     WINDOW_CONTROL.lock().change_window_height(background_id, 0);
-    let ref_to_buf = &mut unsafe {
-        &mut *(&mut WINDOW_CONTROL.lock().windows[background_id].buf
-            as *mut Vec<Vec<Option<Color>>>)
-    };
-    let mut global_text_writer = TextWriter::new(
-        (0, 0),
-        (SCREEN_WIDTH, SCREEN_HEIGHT),
-        (0, 0),
-        ref_to_buf,
-        Color::White,
-    );
 
     let test_window_id = WINDOW_CONTROL.lock().allocate((160, 68)).unwrap();
     WINDOW_CONTROL
@@ -216,17 +204,15 @@ pub fn kernel_loop() -> ! {
         .change_window_height(test_window_id, 1);
     WINDOW_CONTROL.lock().windows[test_window_id].make_window("window");
     WINDOW_CONTROL.lock().windows[test_window_id].moveto((30, 30));
-    let ref_to_buf = &mut unsafe {
-        &mut *(&mut WINDOW_CONTROL.lock().windows[test_window_id].buf
-            as *mut Vec<Vec<Option<Color>>>)
-    };
-
-    let mut text_window_writer =
-        TextWriter::new((3, 25), (159, 67), (0, 0), ref_to_buf, Color::Black);
-    write!(text_window_writer, "Welcome to ").unwrap();
-    write!(text_window_writer, "Haribote-OS!").unwrap();
+    write!(WINDOW_CONTROL.lock().windows[test_window_id], "Welcome to ").unwrap();
+    write!(
+        WINDOW_CONTROL.lock().windows[test_window_id],
+        "Haribote-OS!"
+    )
+    .unwrap();
 
     WINDOW_CONTROL.lock().refresh_screen(None, None);
+    WINDOW_CONTROL.lock().refresh_window_map(None, None);
 
     let mut count = 0;
     loop {
@@ -237,25 +223,26 @@ pub fn kernel_loop() -> ! {
                 let c = KEY_BUF.pop().unwrap();
                 asm::sti();
                 use crate::alloc::string::ToString;
-                global_text_writer
-                    .write_str(c.to_string().as_str())
-                    .unwrap();
+                write!(
+                    WINDOW_CONTROL.lock().windows[background_id],
+                    "{}",
+                    c.to_string().as_str()
+                )
+                .unwrap();
             } else if MOUSE_BUF.status() != 0 {
                 let packet = MOUSE_BUF.pop().unwrap();
                 asm::sti();
                 crate::interrupts::MOUSE.lock().process_packet(packet);
             } else {
                 asm::sti();
-                text_window_writer.clear_buf();
-                text_window_writer.column_position = (0, 0);
-                write!(text_window_writer, "{}", count).unwrap();
+                write!(WINDOW_CONTROL.lock().windows[test_window_id], "{}", count).unwrap();
                 count += 1;
                 let test_window_height =
                     WINDOW_CONTROL.lock().windows[test_window_id].height as isize;
-                WINDOW_CONTROL.lock().refresh_screen(
-                    Some(((3 + 30, 25 + 30), (3 + 30 + 30, 25 + 30 + 16))),
-                    Some(test_window_height),
-                );
+                let test_window_area = WINDOW_CONTROL.lock().windows[test_window_id].area();
+                WINDOW_CONTROL
+                    .lock()
+                    .refresh_screen(Some(test_window_area), Some(test_window_height));
             }
         }
     }
