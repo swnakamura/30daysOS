@@ -387,17 +387,17 @@ impl Window {
 
         self.boxfill(White, ((3, ysize - 24), (59, ysize - 24)));
         self.boxfill(White, ((2, ysize - 24), (2, ysize - 4)));
-        self.boxfill(DarkGrey, ((3, ysize - 4), (59, ysize - 4)));
-        self.boxfill(DarkGrey, ((59, ysize - 23), (59, ysize - 5)));
+        self.boxfill(DarkBlue, ((3, ysize - 4), (59, ysize - 4)));
+        self.boxfill(DarkBlue, ((59, ysize - 23), (59, ysize - 5)));
         self.boxfill(Black, ((2, ysize - 3), (59, ysize - 3)));
         self.boxfill(Black, ((60, ysize - 24), (60, ysize - 3)));
 
         self.boxfill(
-            DarkGrey,
+            DarkBlue,
             ((xsize - 47, ysize - 24), (xsize - 4, ysize - 24)),
         );
         self.boxfill(
-            DarkGrey,
+            DarkBlue,
             ((xsize - 47, ysize - 23), (xsize - 47, ysize - 4)),
         );
         self.boxfill(White, ((xsize - 47, ysize - 3), (xsize - 4, ysize - 3)));
@@ -430,18 +430,18 @@ impl Window {
         self.boxfill(Color::White, ((1, 1), (xsize - 2, 1)));
         self.boxfill(Color::LightGrey, ((0, 0), (0, ysize - 1)));
         self.boxfill(Color::White, ((1, 1), (1, ysize - 2)));
-        self.boxfill(Color::DarkGrey, ((xsize - 2, 1), (xsize - 2, ysize - 2)));
+        self.boxfill(Color::Black, ((xsize - 2, 1), (xsize - 2, ysize - 2)));
         self.boxfill(Color::Black, ((xsize - 1, 0), (xsize - 1, ysize - 1)));
         self.boxfill(Color::LightGrey, ((2, 2), (xsize - 3, ysize - 3)));
         self.boxfill(Color::Blue, ((3, 3), (xsize - 4, 20)));
-        self.boxfill(Color::DarkGrey, ((1, ysize - 2), (xsize - 2, ysize - 2)));
+        self.boxfill(Color::Black, ((1, ysize - 2), (xsize - 2, ysize - 2)));
         self.boxfill(Color::Black, ((0, ysize - 1), (xsize - 1, ysize - 1)));
         for y in 0..CLOSE_BUTTON_HEIGHT {
             for x in 0..CLOSE_BUTTON_WIDTH {
                 let c = CLOSE_BUTTON[y][x];
                 let color = match c {
                     b'@' => Color::Black,
-                    b'$' => Color::DarkGrey,
+                    b'$' => Color::DarkBlue,
                     b'Q' => Color::LightGrey,
                     _ => Color::White,
                 };
