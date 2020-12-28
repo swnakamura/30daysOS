@@ -80,13 +80,15 @@ bitflags! {
 }
 
 pub struct WindowControl<'a> {
+    /// Reference to the graphic mode.
     pub mode: &'a Graphics320x200x256,
-    /// pointers to the registered windows.
+    /// Reference to the registered windows.
     pub windows: Vec<Window>,
-    /// map height to windows index. windows with height==-1 is not mapped.
+    /// Map height to windows index. Windows with height==-1 is not mapped.
     height_to_windows_idx: [usize; MAX_WIN_NUM],
+    /// The highest window height.
     top: isize,
-    // map: [[isize; MAP_WIDTH as usize]; MAP_HEIGHT as usize],
+    /// Represents the height of the "owner" window of the pixel which is the highest window at the pixel.
     map: Vec<Vec<isize>>,
 }
 
@@ -104,7 +106,7 @@ impl<'a> WindowControl<'a> {
             map: vec![vec![0; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize],
         }
     }
-    /// register a new window
+    /// Register a new window with the given size.
     pub fn allocate(&mut self, size: Point<isize>) -> Option<usize> {
         for i in 0..MAX_WIN_NUM {
             if !self.windows[i].flag.contains(WinFlag::USE) {
@@ -162,6 +164,7 @@ impl<'a> WindowControl<'a> {
         // self.refresh_screen(Some(window_area));
     }
 
+    /// Remove window from allocation.
     pub fn free(&mut self, window_id: usize) {
         if self.windows[window_id].height >= 0 {
             self.change_window_height(window_id, -1);
@@ -169,10 +172,8 @@ impl<'a> WindowControl<'a> {
         unimplemented!()
     }
 
-    /// Refresh screen in the refresh_area.
+    /// Refreshes screen for the pixels within the refresh_area.
     /// If refresh_area is not given, whole screen is refreshed.
-    /// 1. refresh with black
-    /// 2. refresh with windows
     pub fn refresh_screen(
         &mut self,
         refresh_area: Option<(Point<isize>, Point<isize>)>,
@@ -224,12 +225,18 @@ impl<'a> WindowControl<'a> {
             }
         }
     }
+
+    /// Refreshes map for the pixels within the refresh_area.
+    /// If refresh_area is not given, whole screen is refreshed.
+    ///
+    /// TODO: the logic is mostly the same with refresh_screen... we can simplify them somehow
     pub fn refresh_window_map(
         &mut self,
         refresh_area: Option<(Point<isize>, Point<isize>)>,
         refreshed_window_height: Option<isize>,
     ) {
         use core::cmp::{max, min};
+
         let refreshed_window_height = refreshed_window_height.unwrap_or(0);
 
         for h in refreshed_window_height..=self.top {
@@ -297,17 +304,18 @@ impl Window {
             flag: WinFlag::empty(),
         }
     }
-    /// returns position and size of the window
+    /// Returns position and size of the window
     pub fn position(&self) -> (Point<isize>, Point<isize>) {
         return (self.top_left, self.size);
     }
-    /// returns area of the window in the screen.
+    /// Returns area of the window in the screen.
     pub fn area(&self) -> (Point<isize>, Point<isize>) {
         (
             self.top_left,
             (self.top_left.0 + self.size.0, self.top_left.1 + self.size.1),
         )
     }
+    /// Returns the current line area of the window.
     pub fn line_area(&self) -> (Point<isize>, Point<isize>) {
         (
             (self.top_left.0, self.column_position.1),
@@ -317,22 +325,27 @@ impl Window {
             ),
         )
     }
+    /// Adjust the size of the window.
+    /// You need to rewrite the buffer after this function.
     pub fn adjust(&mut self, new_size: Point<isize>) {
         self.size = new_size;
         self.buf = Self::create_buffer(new_size, self.background);
     }
+    /// Move window by the given movement.
     pub fn moveby(&mut self, movement: Point<isize>) {
         self.top_left.0 += movement.0;
         self.top_left.0 = clip(self.top_left.0, 0, SCREEN_WIDTH);
         self.top_left.1 += movement.1;
         self.top_left.1 = clip(self.top_left.1, 0, SCREEN_HEIGHT);
     }
-    pub fn moveto(&mut self, movement: Point<isize>) {
-        self.top_left.0 = movement.0;
+    /// Move window to the given movement.
+    pub fn moveto(&mut self, coordinate: Point<isize>) {
+        self.top_left.0 = coordinate.0;
         self.top_left.0 = clip(self.top_left.0, 0, SCREEN_WIDTH);
-        self.top_left.1 = movement.1;
+        self.top_left.1 = coordinate.1;
         self.top_left.1 = clip(self.top_left.1, 0, SCREEN_HEIGHT);
     }
+    /// Change foreground/background of the window.
     pub fn change_color(&mut self, foreground: Color, background: Color) {
         self.foreground = foreground;
         self.background = background;
@@ -342,10 +355,12 @@ impl Window {
             }
         }
     }
+    /// Create new buffer.
     fn create_buffer(size: Point<isize>, background: Color) -> Vec<Vec<Option<Color>>> {
         vec![vec![Some(background); size.0 as usize]; size.1 as usize]
     }
 
+    /// draw one character to the buffer.
     pub fn draw_character(&mut self, coord: Point<isize>, chara: char, color: Color) {
         let font = FONT_DATA[chara as usize];
         for i in 0..FONT_HEIGHT {
@@ -357,10 +372,14 @@ impl Window {
             }
         }
     }
+    /// Write given color to the buffer at the given coordinate.
+    /// This is useful since we need to specify the coordinate like `buf[y][x]`, which is quite
+    /// swappy.
     #[inline(always)]
     fn write_pixel_to_buf(&mut self, coord: Point<isize>, color: Option<Color>) {
         self.buf[coord.1 as usize][coord.0 as usize] = color;
     }
+    /// Clear out buffer with `self.background`.
     fn clear_buf(&mut self) {
         for i in 0..self.buf.len() {
             for j in 0..self.buf[i].len() {
@@ -368,6 +387,7 @@ impl Window {
             }
         }
     }
+    /// Fill the area given by `area` (inclusive) with the color.
     pub fn boxfill(&mut self, color: Color, area: (Point<isize>, Point<isize>)) {
         let (topleft, bottomright) = area;
         for x in topleft.0..=bottomright.0 {
@@ -376,7 +396,8 @@ impl Window {
             }
         }
     }
-    /// set up this window as background
+    /// Set up this window as background.
+    /// Paint it with Cyan, draw menu bar, etc.
     pub fn make_background(&mut self) {
         let (xsize, ysize) = self.size;
         use Color::*;
@@ -403,7 +424,8 @@ impl Window {
         self.boxfill(White, ((xsize - 47, ysize - 3), (xsize - 4, ysize - 3)));
         self.boxfill(White, ((xsize - 3, ysize - 24), (xsize - 3, ysize - 3)));
     }
-    /// set up this window as ordinary window
+    /// Set up this window as ordinary window.
+    /// Paint it with LightGrey, draw CLOSE_BUTTON, etc.
     pub fn make_window(&mut self, title: &str) {
         const CLOSE_BUTTON_WIDTH: usize = 16;
         const CLOSE_BUTTON_HEIGHT: usize = 14;
