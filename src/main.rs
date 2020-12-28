@@ -16,23 +16,13 @@ use lib::println;
 entry_point!(kernel_main);
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    haribote::init();
-
-    use haribote::allocator;
-    use haribote::memory;
-    use x86_64::VirtAddr;
-
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    let mut frame_allocator =
-        unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
-    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+    let _phys_mem_offset = haribote::init(boot_info);
 
     #[cfg(test)]
     {
         use lib::serial_println;
         serial_println!("{}", "#".repeat(100));
-        serial_println!("memory_offset:{:?}", phys_mem_offset);
+        serial_println!("memory_offset:{:?}", _phys_mem_offset);
         serial_println!("Displaying memory regions...");
         boot_info
             .memory_map

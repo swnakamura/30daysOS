@@ -17,7 +17,7 @@ extern crate alloc;
 extern crate rlibc;
 
 #[cfg(test)]
-use bootloader::{entry_point, BootInfo};
+use bootloader::entry_point;
 use core::panic::PanicInfo;
 
 // pub mod vga_graphic;
@@ -85,13 +85,23 @@ where
 }
 
 /// initializes kernel
-pub fn init() {
+use bootloader::BootInfo;
+pub fn init(boot_info: &'static BootInfo) -> x86_64::VirtAddr {
     gdt::init();
     interrupts::init_idt();
     unsafe {
         interrupts::PICS.lock().initialize();
     }
     x86_64::instructions::interrupts::enable();
+
+    use x86_64::VirtAddr;
+
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut frame_allocator =
+        unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+    phys_mem_offset
 }
 
 #[cfg(test)]
@@ -99,8 +109,8 @@ entry_point!(test_kernel_main);
 
 #[cfg(test)]
 /// initializes kernel when testing
-fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
-    init();
+fn test_kernel_main(boot_info: &'static BootInfo) -> ! {
+    init(boot_info);
     test_main();
     kernel_loop()
 }
