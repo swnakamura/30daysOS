@@ -35,6 +35,8 @@ pub mod interrupts;
 pub mod memory;
 /// communicating with serial port
 pub mod serial;
+/// PIT settings
+pub mod timer;
 /// utility functions
 pub mod util;
 /// GUI
@@ -93,9 +95,9 @@ pub fn init(boot_info: &'static BootInfo) -> x86_64::VirtAddr {
         interrupts::PICS.lock().initialize();
     }
     x86_64::instructions::interrupts::enable();
+    timer::init_pit();
 
     use x86_64::VirtAddr;
-
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_allocator =
@@ -218,7 +220,6 @@ pub fn kernel_loop() -> ! {
     WINDOW_CONTROL.lock().refresh_screen(None, None);
     WINDOW_CONTROL.lock().refresh_window_map(None, None);
 
-    let mut count = 0;
     loop {
         asm::cli();
         // we assume this is single-threaded as static variables are used here
@@ -238,16 +239,19 @@ pub fn kernel_loop() -> ! {
                 asm::sti();
                 crate::interrupts::MOUSE.lock().process_packet(packet);
             } else {
-                asm::sti();
-
                 let initial_column_position =
                     WINDOW_CONTROL.lock().windows[test_window_id].initial_column_position;
                 WINDOW_CONTROL.lock().windows[test_window_id].column_position =
                     initial_column_position;
                 WINDOW_CONTROL.lock().windows[test_window_id]
-                    .boxfill(Color::LightGrey, ((3, 23), (3 + 100, 23 + 16)));
-                write!(WINDOW_CONTROL.lock().windows[test_window_id], "{}", count).unwrap();
-                count += 1;
+                    .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
+                write!(
+                    WINDOW_CONTROL.lock().windows[test_window_id],
+                    "Uptime:{:>08}",
+                    timer::TIMER_CONTROL.lock().count / 100
+                )
+                .unwrap();
+                asm::sti();
                 let test_window_height =
                     WINDOW_CONTROL.lock().windows[test_window_id].height as isize;
                 let test_window_area = WINDOW_CONTROL.lock().windows[test_window_id].area();

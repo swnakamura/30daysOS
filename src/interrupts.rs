@@ -48,6 +48,9 @@ mod handler {
 
     pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
         // do nothing
+        // *super::timer::TIMER_CONTROL.lock() += 1;
+        use crate::timer;
+        timer::TIMER_CONTROL.lock().count += 1;
 
         // notify end of interrupt
         unsafe {
