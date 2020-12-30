@@ -149,23 +149,20 @@ pub const MOUSE_BUF_SIZE: usize = 1024;
 use lazy_static::lazy_static;
 use spin::Mutex;
 lazy_static! {
-    pub static ref KEY_BUF: Mutex<FIFO<char>> = Mutex::new(FIFO {
-        buf: vec!['0'; KEY_BUF_SIZE],
-        p: 0,
-        q: 0,
-        free: KEY_BUF_SIZE,
-        size: KEY_BUF_SIZE,
-    });
-    pub static ref MOUSE_BUF: Mutex<FIFO<u8>> = Mutex::new(FIFO {
-        buf: vec![0; MOUSE_BUF_SIZE],
-        p: 0,
-        q: 0,
-        free: MOUSE_BUF_SIZE,
-        size: MOUSE_BUF_SIZE,
-    });
+    pub static ref KEY_BUF: Mutex<FIFO<char>> = Mutex::new(FIFO::new(KEY_BUF_SIZE, '0'));
+    pub static ref MOUSE_BUF: Mutex<FIFO<u8>> = Mutex::new(FIFO::new(MOUSE_BUF_SIZE, 0));
 }
 
 impl<T: Clone> FIFO<T> {
+    pub fn new(buf_size: usize, default_value: T) -> Self {
+        Self {
+            buf: vec![default_value; buf_size],
+            p: 0,
+            q: 0,
+            free: buf_size,
+            size: buf_size,
+        }
+    }
     pub fn push(&mut self, data: T) -> Result<(), ()> {
         if self.free == 0 {
             return Err(());
