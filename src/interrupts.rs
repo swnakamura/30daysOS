@@ -78,14 +78,13 @@ mod handler {
 
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
             if let Some(key) = keyboard.process_keyevent(key_event) {
-                unsafe {
-                    crate::KEY_BUF
-                        .push(match key {
-                            DecodedKey::Unicode(character) => character,
-                            DecodedKey::RawKey(_) => '?',
-                        })
-                        .unwrap();
-                }
+                crate::KEY_BUF
+                    .lock()
+                    .push(match key {
+                        DecodedKey::Unicode(character) => character,
+                        DecodedKey::RawKey(_) => '?',
+                    })
+                    .unwrap();
             }
         }
 
@@ -102,9 +101,7 @@ mod handler {
         let mut port = PortReadOnly::new(0x60);
         let packet = unsafe { port.read() };
         // we assume this is single-threaded as static variables are used here
-        unsafe {
-            crate::MOUSE_BUF.push(packet).unwrap();
-        }
+        crate::MOUSE_BUF.lock().push(packet).unwrap();
 
         // notify end of interrupt
         unsafe {

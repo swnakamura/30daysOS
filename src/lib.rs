@@ -132,8 +132,11 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     loop {}
 }
 
-pub struct FIFO<T: 'static> {
-    buf: &'static mut [T],
+use alloc::{vec, vec::Vec};
+
+/// uses static-sized vector as a buffer
+pub struct FIFO<T> {
+    buf: Vec<T>,
     p: usize,
     q: usize,
     size: usize,
@@ -143,21 +146,24 @@ pub struct FIFO<T: 'static> {
 pub const KEY_BUF_SIZE: usize = 32;
 pub const MOUSE_BUF_SIZE: usize = 1024;
 
-pub static mut KEY_BUF: FIFO<char> = FIFO {
-    buf: &mut ['0'; KEY_BUF_SIZE],
-    p: 0,
-    q: 0,
-    free: KEY_BUF_SIZE,
-    size: KEY_BUF_SIZE,
-};
-
-pub static mut MOUSE_BUF: FIFO<u8> = FIFO {
-    buf: &mut [0; MOUSE_BUF_SIZE],
-    p: 0,
-    q: 0,
-    free: MOUSE_BUF_SIZE,
-    size: MOUSE_BUF_SIZE,
-};
+use lazy_static::lazy_static;
+use spin::Mutex;
+lazy_static! {
+    pub static ref KEY_BUF: Mutex<FIFO<char>> = Mutex::new(FIFO {
+        buf: vec!['0'; KEY_BUF_SIZE],
+        p: 0,
+        q: 0,
+        free: KEY_BUF_SIZE,
+        size: KEY_BUF_SIZE,
+    });
+    pub static ref MOUSE_BUF: Mutex<FIFO<u8>> = Mutex::new(FIFO {
+        buf: vec![0; MOUSE_BUF_SIZE],
+        p: 0,
+        q: 0,
+        free: MOUSE_BUF_SIZE,
+        size: MOUSE_BUF_SIZE,
+    });
+}
 
 impl<T: Clone> FIFO<T> {
     pub fn push(&mut self, data: T) -> Result<(), ()> {
@@ -222,43 +228,39 @@ pub fn kernel_loop() -> ! {
 
     loop {
         asm::cli();
-        // we assume this is single-threaded as static variables are used here
-        unsafe {
-            if KEY_BUF.status() != 0 {
-                let c = KEY_BUF.pop().unwrap();
-                asm::sti();
-                use crate::alloc::string::ToString;
-                write!(
-                    WINDOW_CONTROL.lock().windows[background_id],
-                    "{}",
-                    c.to_string().as_str()
-                )
-                .unwrap();
-            } else if MOUSE_BUF.status() != 0 {
-                let packet = MOUSE_BUF.pop().unwrap();
-                asm::sti();
-                crate::interrupts::MOUSE.lock().process_packet(packet);
-            } else {
-                let initial_column_position =
-                    WINDOW_CONTROL.lock().windows[test_window_id].initial_column_position;
-                WINDOW_CONTROL.lock().windows[test_window_id].column_position =
-                    initial_column_position;
-                WINDOW_CONTROL.lock().windows[test_window_id]
-                    .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
-                write!(
-                    WINDOW_CONTROL.lock().windows[test_window_id],
-                    "Uptime:{:>08}",
-                    timer::TIMER_CONTROL.lock().count / 100
-                )
-                .unwrap();
-                asm::sti();
-                let test_window_height =
-                    WINDOW_CONTROL.lock().windows[test_window_id].height as isize;
-                let test_window_area = WINDOW_CONTROL.lock().windows[test_window_id].area();
-                WINDOW_CONTROL
-                    .lock()
-                    .refresh_screen(Some(test_window_area), Some(test_window_height));
-            }
+        // 先に評価しておかないと、lockが開放されない
+        let keybuf_pop_result = KEY_BUF.lock().pop();
+        let mousebuf_pop_result = MOUSE_BUF.lock().pop();
+        if let Ok(c) = keybuf_pop_result {
+            use crate::alloc::string::ToString;
+            write!(
+                WINDOW_CONTROL.lock().windows[background_id],
+                "{}",
+                c.to_string().as_str()
+            )
+            .unwrap();
+            asm::sti();
+        } else if let Ok(packet) = mousebuf_pop_result {
+            crate::interrupts::MOUSE.lock().process_packet(packet);
+            asm::sti();
+        } else {
+            let initial_column_position =
+                WINDOW_CONTROL.lock().windows[test_window_id].initial_column_position;
+            WINDOW_CONTROL.lock().windows[test_window_id].column_position = initial_column_position;
+            WINDOW_CONTROL.lock().windows[test_window_id]
+                .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
+            write!(
+                WINDOW_CONTROL.lock().windows[test_window_id],
+                "Uptime:{:>08}",
+                timer::TIMER_CONTROL.lock().count
+            )
+            .unwrap();
+            asm::sti();
+            let test_window_height = WINDOW_CONTROL.lock().windows[test_window_id].height as isize;
+            let test_window_area = WINDOW_CONTROL.lock().windows[test_window_id].area();
+            WINDOW_CONTROL
+                .lock()
+                .refresh_screen(Some(test_window_area), Some(test_window_height));
         }
     }
 }
