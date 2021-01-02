@@ -89,20 +89,31 @@ where
 /// initializes kernel
 use bootloader::BootInfo;
 pub fn init(boot_info: &'static BootInfo) -> x86_64::VirtAddr {
+    // initialize GDT
     gdt::init();
+
+    // set timer interrupt frequency
+    timer::init_pit();
+
+    // initialize IDT
     interrupts::init_idt();
     unsafe {
         interrupts::PICS.lock().initialize();
     }
-    x86_64::instructions::interrupts::enable();
-    timer::init_pit();
 
+    // initialize memory allocation
     use x86_64::VirtAddr;
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_allocator =
         unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
     allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+
+    // enable interrupts
+    // This should be later than the initialization of memory allocation, since this starts timer
+    // interrupt and timer uses FIFO, which internally uses Vec.
+    x86_64::instructions::interrupts::enable();
+
     phys_mem_offset
 }
 

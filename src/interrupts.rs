@@ -47,10 +47,22 @@ mod handler {
     }
 
     pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
-        // do nothing
-        // *super::timer::TIMER_CONTROL.lock() += 1;
-        use crate::timer;
-        timer::TIMER_CONTROL.lock().count += 1;
+        use crate::asm;
+        use crate::timer::TIMER_CONTROL;
+        use x86_64::registers::rflags;
+
+        TIMER_CONTROL.lock().count += 1;
+
+        let rf = rflags::read();
+        asm::cli();
+        let timeout = TIMER_CONTROL.lock().timeout;
+        if timeout == 1 {
+            TIMER_CONTROL.lock().timeout -= 1;
+            TIMER_CONTROL.lock().push_timeout_signal();
+        } else if timeout > 1 {
+            TIMER_CONTROL.lock().timeout -= 1;
+        }
+        rflags::write(rf);
 
         // notify end of interrupt
         unsafe {
