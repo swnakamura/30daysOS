@@ -55,12 +55,12 @@ mod handler {
 
         let rf = rflags::read();
         asm::cli();
-        let timeout = TIMER_CONTROL.lock().timeout;
-        if timeout == 1 {
-            TIMER_CONTROL.lock().timeout -= 1;
-            TIMER_CONTROL.lock().push_timeout_signal();
-        } else if timeout > 1 {
-            TIMER_CONTROL.lock().timeout -= 1;
+        {
+            let mut tc_locked = TIMER_CONTROL.lock();
+            tc_locked.timeout -= 1;
+            if tc_locked.timeout == 0 {
+                tc_locked.push_timeout_signal();
+            }
         }
         rflags::write(rf);
 
@@ -142,8 +142,11 @@ lazy_static! {
 }
 
 pub fn init_idt() {
-    MOUSE.lock().init().unwrap();
-    MOUSE.lock().set_on_complete(on_mouse_process_complete);
+    {
+        let mut locked_mouse = MOUSE.lock();
+        locked_mouse.init().unwrap();
+        locked_mouse.set_on_complete(on_mouse_process_complete);
+    }
     IDT.load();
 }
 
@@ -152,28 +155,33 @@ fn on_mouse_process_complete(mouse_state: MouseState) {
     use crate::vga_graphic::{
         CURSOR_HEIGHT, CURSOR_WIDTH, MOUSE_ID, SCREEN_HEIGHT, SCREEN_WIDTH, WINDOW_CONTROL,
     };
-    let (prev_position, _) = WINDOW_CONTROL.lock().windows[*MOUSE_ID].position();
-    let movement = (mouse_state.get_x() as isize, mouse_state.get_y() as isize);
+    {
+        let mut locked_wc = WINDOW_CONTROL.lock();
+        let (prev_position, _) = locked_wc.windows[*MOUSE_ID].position();
+        let movement = (mouse_state.get_x() as isize, mouse_state.get_y() as isize);
 
-    WINDOW_CONTROL.lock().windows[*MOUSE_ID].moveby((movement.0, -movement.1));
+        locked_wc.windows[*MOUSE_ID].moveby((movement.0, -movement.1));
 
-    let mut new_position = (prev_position.0 + movement.0, prev_position.1 + movement.1);
-    new_position.0 = clip(new_position.0, 0, SCREEN_WIDTH);
-    new_position.1 = clip(new_position.1, 0, SCREEN_HEIGHT);
+        let mut new_position = (prev_position.0 + movement.0, prev_position.1 + movement.1);
+        new_position.0 = clip(new_position.0, 0, SCREEN_WIDTH);
+        new_position.1 = clip(new_position.1, 0, SCREEN_HEIGHT);
 
-    let min_x = core::cmp::min(prev_position.0, new_position.0 as isize);
-    let max_x = core::cmp::max(prev_position.0, new_position.0 as isize) + CURSOR_WIDTH as isize;
-    let min_y = core::cmp::min(prev_position.1, new_position.1 as isize);
-    let max_y = core::cmp::max(prev_position.1, new_position.1 as isize) + CURSOR_HEIGHT as isize;
-    let mouse_window_height = WINDOW_CONTROL.lock().windows[*MOUSE_ID].height as isize;
-    WINDOW_CONTROL.lock().refresh_window_map(
-        Some(((min_x, min_y), (max_x, max_y))),
-        Some(mouse_window_height),
-    );
-    WINDOW_CONTROL.lock().refresh_screen(
-        Some(((min_x, min_y), (max_x, max_y))),
-        Some(mouse_window_height),
-    );
+        let min_x = core::cmp::min(prev_position.0, new_position.0 as isize);
+        let max_x =
+            core::cmp::max(prev_position.0, new_position.0 as isize) + CURSOR_WIDTH as isize;
+        let min_y = core::cmp::min(prev_position.1, new_position.1 as isize);
+        let max_y =
+            core::cmp::max(prev_position.1, new_position.1 as isize) + CURSOR_HEIGHT as isize;
+        let mouse_window_height = locked_wc.windows[*MOUSE_ID].height as isize;
+        locked_wc.refresh_window_map(
+            Some(((min_x, min_y), (max_x, max_y))),
+            Some(mouse_window_height),
+        );
+        locked_wc.refresh_screen(
+            Some(((min_x, min_y), (max_x, max_y))),
+            Some(mouse_window_height),
+        );
+    }
 }
 
 pub const PIC_1_OFFSET: u8 = 0x20;

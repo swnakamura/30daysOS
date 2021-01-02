@@ -146,6 +146,7 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 use alloc::{vec, vec::Vec};
 
 /// uses static-sized vector as a buffer
+#[derive(Debug)]
 pub struct FIFO<T> {
     buf: Vec<T>,
     p: usize,
@@ -216,23 +217,28 @@ pub fn kernel_loop() -> ! {
     use vga_graphic::WINDOW_CONTROL;
     use vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-    let background_id = WINDOW_CONTROL
-        .lock()
-        .allocate((SCREEN_WIDTH, SCREEN_HEIGHT))
-        .unwrap();
-    WINDOW_CONTROL.lock().windows[background_id].change_color(Color::White, Color::Cyan);
-    WINDOW_CONTROL.lock().windows[background_id].make_background();
-    WINDOW_CONTROL.lock().change_window_height(background_id, 0);
+    // initialize background and test_window
+    let (background_id, test_window_id) = {
+        let mut window_control = WINDOW_CONTROL.lock();
+        let background_id = window_control
+            .allocate((SCREEN_WIDTH, SCREEN_HEIGHT))
+            .unwrap();
+        window_control.windows[background_id].change_color(Color::White, Color::Cyan);
+        window_control.windows[background_id].make_background();
+        window_control.change_window_height(background_id, 0);
 
-    let test_window_id = WINDOW_CONTROL.lock().allocate((160, 68)).unwrap();
-    WINDOW_CONTROL
-        .lock()
-        .change_window_height(test_window_id, 1);
-    WINDOW_CONTROL.lock().windows[test_window_id].make_window("counting up...");
-    WINDOW_CONTROL.lock().windows[test_window_id].moveto((30, 30));
+        let test_window_id = window_control.allocate((160, 68)).unwrap();
+        window_control.change_window_height(test_window_id, 1);
+        window_control.windows[test_window_id].make_window("counting up...");
+        window_control.windows[test_window_id].moveto((30, 30));
 
-    WINDOW_CONTROL.lock().refresh_screen(None, None);
-    WINDOW_CONTROL.lock().refresh_window_map(None, None);
+        window_control.refresh_screen(None, None);
+        window_control.refresh_window_map(None, None);
+
+        (background_id, test_window_id)
+    };
+
+    timer::TIMER_CONTROL.lock().set_timer(1000);
 
     loop {
         asm::cli();
@@ -252,23 +258,24 @@ pub fn kernel_loop() -> ! {
             crate::interrupts::MOUSE.lock().process_packet(packet);
             asm::sti();
         } else {
-            let initial_column_position =
-                WINDOW_CONTROL.lock().windows[test_window_id].initial_column_position;
-            WINDOW_CONTROL.lock().windows[test_window_id].column_position = initial_column_position;
-            WINDOW_CONTROL.lock().windows[test_window_id]
-                .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
-            write!(
-                WINDOW_CONTROL.lock().windows[test_window_id],
-                "Uptime:{:>08}",
-                timer::TIMER_CONTROL.lock().count
-            )
-            .unwrap();
-            asm::sti();
-            let test_window_height = WINDOW_CONTROL.lock().windows[test_window_id].height as isize;
-            let test_window_area = WINDOW_CONTROL.lock().windows[test_window_id].area();
-            WINDOW_CONTROL
-                .lock()
-                .refresh_screen(Some(test_window_area), Some(test_window_height));
+            {
+                let mut window_control = WINDOW_CONTROL.lock();
+                let initial_column_position =
+                    window_control.windows[test_window_id].initial_column_position;
+                window_control.windows[test_window_id].column_position = initial_column_position;
+                window_control.windows[test_window_id]
+                    .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
+                write!(
+                    window_control.windows[test_window_id],
+                    "Uptime:{:>08}",
+                    timer::TIMER_CONTROL.lock().count
+                )
+                .unwrap();
+                asm::sti();
+                let test_window_height = window_control.windows[test_window_id].height as isize;
+                let test_window_area = window_control.windows[test_window_id].area();
+                window_control.refresh_screen(Some(test_window_area), Some(test_window_height));
+            }
         }
     }
 }

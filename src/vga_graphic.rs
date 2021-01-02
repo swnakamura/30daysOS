@@ -46,8 +46,8 @@ lazy_static! {
     pub static ref WINDOW_CONTROL: Mutex<WindowControl<'static>> =
         Mutex::new(WindowControl::new(&MODE));
     pub static ref MOUSE_ID: usize = {
-        let mouse_id = WINDOW_CONTROL
-            .lock()
+        let mut window_control = WINDOW_CONTROL.lock();
+        let mouse_id = window_control
             .allocate((CURSOR_WIDTH as isize, CURSOR_HEIGHT as isize))
             .unwrap();
         for y in 0..CURSOR_HEIGHT {
@@ -57,11 +57,11 @@ lazy_static! {
                     b'O' => Some(Color::White),
                     _ => None,
                 };
-                WINDOW_CONTROL.lock().windows[mouse_id]
+                window_control.windows[mouse_id]
                     .write_pixel_to_buf((x as isize, y as isize), color);
             }
         }
-        WINDOW_CONTROL.lock().change_window_height(mouse_id, 1);
+        window_control.change_window_height(mouse_id, 1);
         mouse_id
     };
 }
