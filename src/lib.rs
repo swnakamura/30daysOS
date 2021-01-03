@@ -242,7 +242,7 @@ pub fn kernel_loop() -> ! {
         let mut locked_tc = timer::TIMER_CONTROL.lock();
         // 0.01s x 1000 = 10s
         let timer_id = locked_tc.allocate().unwrap();
-        locked_tc.timers[timer_id].set_time(50);
+        locked_tc.set_time(timer_id, 50);
         timer_id
     };
 
@@ -281,14 +281,14 @@ pub fn kernel_loop() -> ! {
                 let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
                 {
                     let mut tc_locked = timer::TIMER_CONTROL.lock();
-                    if let Ok(_) = tc_locked.timers[timer_10_sec_id].fifo.pop() {
+                    if let Ok(_) = tc_locked.timers[timer_10_sec_id].pop() {
                         write!(sheet_control.sheets[test_sheet_id], "10 secs have passed",)
                             .unwrap();
                     }
                 }
+                asm::sti();
                 sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
             }
-            asm::sti();
         }
     }
 }

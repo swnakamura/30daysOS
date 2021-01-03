@@ -24,6 +24,9 @@ impl<T: Copy> TIMERCTL<T> {
     pub fn deallocate(&mut self, id: usize) {
         self.timers[id].flag = TimerState::Unused;
     }
+    pub fn set_time(&mut self, id: usize, timeout: i32) {
+        self.timers[id].timeout = self.count + timeout;
+    }
 }
 
 use lazy_static::lazy_static;
@@ -38,7 +41,7 @@ lazy_static! {
 pub struct TIMER<T: Copy> {
     pub timeout: i32,
     pub flag: TimerState,
-    pub fifo: FIFO<T>,
+    fifo: FIFO<T>,
     pub data: T,
 }
 
@@ -62,8 +65,8 @@ impl<T: Copy> TIMER<T> {
     pub fn push_timeout_signal(&mut self) {
         self.fifo.push(self.data).unwrap();
     }
-    pub fn set_time(&mut self, timeout: i32) {
-        self.timeout = timeout;
+    pub fn pop(&mut self) -> Result<T, ()> {
+        self.fifo.pop()
     }
     pub fn deallocate(&mut self) {
         self.flag = TimerState::Unused;

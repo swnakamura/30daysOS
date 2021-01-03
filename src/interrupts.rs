@@ -59,13 +59,12 @@ mod handler {
             use crate::timer::TimerState;
             let mut tc_locked = TIMER_CONTROL.lock();
             tc_locked.count += 1;
+            let tc_locked_count = tc_locked.count;
             for mut timer in &mut tc_locked.timers {
                 if timer.flag == TimerState::Using {
-                    if timer.timeout == 0 {
+                    if tc_locked_count == timer.timeout {
                         timer.push_timeout_signal();
                         timer.flag = TimerState::Alloc;
-                    } else {
-                        timer.timeout -= 1;
                     }
                 }
             }
