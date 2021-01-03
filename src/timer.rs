@@ -8,6 +8,7 @@ const MAX_TIMER: usize = 100;
 
 pub struct TIMERCTL<T: Copy> {
     pub count: i32,
+    pub next: i32,
     pub timers: Vec<TIMER<T>>,
 }
 
@@ -24,8 +25,28 @@ impl<T: Copy> TIMERCTL<T> {
     pub fn deallocate(&mut self, id: usize) {
         self.timers[id].flag = TimerState::Unused;
     }
-    pub fn set_time(&mut self, id: usize, timeout: i32) {
-        self.timers[id].timeout = self.count + timeout;
+    pub fn set_time(&mut self, id: usize, wait_time: i32) {
+        let timeout = self.count + wait_time;
+        self.timers[id].timeout = timeout;
+        self.next = core::cmp::min(self.next, timeout);
+    }
+    pub fn refresh_nexts(&mut self) {
+        self.next = core::i32::MAX;
+        for timer in &mut self.timers {
+            if timer.flag == TimerState::Using {
+                if self.count == timer.timeout {
+                    timer.push_timeout_signal();
+                    timer.flag = TimerState::Alloc;
+                } else {
+                    self.next = core::cmp::min(self.next, timer.timeout);
+                }
+            }
+        }
+    }
+    pub fn check_timers(&mut self) {
+        if self.next == self.count {
+            self.refresh_nexts();
+        }
     }
 }
 
@@ -33,6 +54,7 @@ use lazy_static::lazy_static;
 lazy_static! {
     pub static ref TIMER_CONTROL: Mutex<TIMERCTL<u8>> = Mutex::new(TIMERCTL {
         count: 0,
+        next: core::i32::MAX,
         timers: vec![TIMER::new(0); MAX_TIMER],
     });
 }

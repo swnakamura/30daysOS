@@ -242,7 +242,7 @@ pub fn kernel_loop() -> ! {
         let mut locked_tc = timer::TIMER_CONTROL.lock();
         // 0.01s x 1000 = 10s
         let timer_id = locked_tc.allocate().unwrap();
-        locked_tc.set_time(timer_id, 50);
+        locked_tc.set_time(timer_id, 500);
         timer_id
     };
 
