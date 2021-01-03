@@ -227,7 +227,7 @@ pub fn kernel_loop() -> ! {
         sheet_control.sheets[background_id].make_background();
         sheet_control.change_sheet_height(background_id, 0);
 
-        let test_sheet_id = sheet_control.allocate((160, 68)).unwrap();
+        let test_sheet_id = sheet_control.allocate((190, 68)).unwrap();
         sheet_control.change_sheet_height(test_sheet_id, 1);
         sheet_control.sheets[test_sheet_id].make_sheet("counting up...");
         sheet_control.sheets[test_sheet_id].moveto((30, 30));
@@ -282,7 +282,7 @@ pub fn kernel_loop() -> ! {
                 {
                     let mut tc_locked = timer::TIMER_CONTROL.lock();
                     if let Ok(_) = tc_locked.timers[timer_10_sec_id].pop() {
-                        write!(sheet_control.sheets[test_sheet_id], "10 secs have passed",)
+                        write!(sheet_control.sheets[test_sheet_id], "\n10 secs have passed",)
                             .unwrap();
                     }
                 }
