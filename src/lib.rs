@@ -238,6 +238,7 @@ pub fn kernel_loop() -> ! {
         (background_id, test_window_id)
     };
 
+    // 0.01s x 1000 = 10s
     timer::TIMER_CONTROL.lock().set_timer(1000);
 
     loop {
@@ -271,9 +272,19 @@ pub fn kernel_loop() -> ! {
                     timer::TIMER_CONTROL.lock().count
                 )
                 .unwrap();
-                asm::sti();
                 let test_window_height = window_control.windows[test_window_id].height as isize;
                 let test_window_area = window_control.windows[test_window_id].area();
+                {
+                    let mut tc_locked = timer::TIMER_CONTROL.lock();
+                    if let Ok(_) = tc_locked.fifo.pop() {
+                        write!(
+                            window_control.windows[test_window_id],
+                            "10 secs have passed",
+                        )
+                        .unwrap();
+                    }
+                }
+                asm::sti();
                 window_control.refresh_screen(Some(test_window_area), Some(test_window_height));
             }
         }
