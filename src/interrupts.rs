@@ -153,14 +153,14 @@ pub fn init_idt() {
 fn on_mouse_process_complete(mouse_state: MouseState) {
     use crate::util::clip;
     use crate::vga_graphic::{
-        CURSOR_HEIGHT, CURSOR_WIDTH, MOUSE_ID, SCREEN_HEIGHT, SCREEN_WIDTH, WINDOW_CONTROL,
+        CURSOR_HEIGHT, CURSOR_WIDTH, MOUSE_ID, SCREEN_HEIGHT, SCREEN_WIDTH, SHEET_CONTROL,
     };
     {
-        let mut locked_wc = WINDOW_CONTROL.lock();
-        let (prev_position, _) = locked_wc.windows[*MOUSE_ID].position();
+        let mut locked_wc = SHEET_CONTROL.lock();
+        let (prev_position, _) = locked_wc.sheets[*MOUSE_ID].position();
         let movement = (mouse_state.get_x() as isize, mouse_state.get_y() as isize);
 
-        locked_wc.windows[*MOUSE_ID].moveby((movement.0, -movement.1));
+        locked_wc.sheets[*MOUSE_ID].moveby((movement.0, -movement.1));
 
         let mut new_position = (prev_position.0 + movement.0, prev_position.1 + movement.1);
         new_position.0 = clip(new_position.0, 0, SCREEN_WIDTH);
@@ -172,14 +172,14 @@ fn on_mouse_process_complete(mouse_state: MouseState) {
         let min_y = core::cmp::min(prev_position.1, new_position.1 as isize);
         let max_y =
             core::cmp::max(prev_position.1, new_position.1 as isize) + CURSOR_HEIGHT as isize;
-        let mouse_window_height = locked_wc.windows[*MOUSE_ID].height as isize;
-        locked_wc.refresh_window_map(
+        let mouse_sheet_height = locked_wc.sheets[*MOUSE_ID].height as isize;
+        locked_wc.refresh_sheet_map(
             Some(((min_x, min_y), (max_x, max_y))),
-            Some(mouse_window_height),
+            Some(mouse_sheet_height),
         );
         locked_wc.refresh_screen(
             Some(((min_x, min_y), (max_x, max_y))),
-            Some(mouse_window_height),
+            Some(mouse_sheet_height),
         );
     }
 }

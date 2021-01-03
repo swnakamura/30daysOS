@@ -43,11 +43,11 @@ lazy_static! {
         mode.clear_screen(Color::Black as u8);
         mode
     };
-    pub static ref WINDOW_CONTROL: Mutex<WindowControl<'static>> =
-        Mutex::new(WindowControl::new(&MODE));
+    pub static ref SHEET_CONTROL: Mutex<SheetControl<'static>> =
+        Mutex::new(SheetControl::new(&MODE));
     pub static ref MOUSE_ID: usize = {
-        let mut window_control = WINDOW_CONTROL.lock();
-        let mouse_id = window_control
+        let mut sheet_control = SHEET_CONTROL.lock();
+        let mouse_id = sheet_control
             .allocate((CURSOR_WIDTH as isize, CURSOR_HEIGHT as isize))
             .unwrap();
         for y in 0..CURSOR_HEIGHT {
@@ -57,11 +57,10 @@ lazy_static! {
                     b'O' => Some(Color::White),
                     _ => None,
                 };
-                window_control.windows[mouse_id]
-                    .write_pixel_to_buf((x as isize, y as isize), color);
+                sheet_control.sheets[mouse_id].write_pixel_to_buf((x as isize, y as isize), color);
             }
         }
-        window_control.change_window_height(mouse_id, 1);
+        sheet_control.change_sheet_height(mouse_id, 1);
         mouse_id
     };
 }
@@ -79,38 +78,38 @@ bitflags! {
     }
 }
 
-pub struct WindowControl<'a> {
+pub struct SheetControl<'a> {
     /// Reference to the graphic mode.
     pub mode: &'a Graphics320x200x256,
-    /// Reference to the registered windows.
-    pub windows: Vec<Window>,
-    /// Map height to windows index. Windows with height==-1 is not mapped.
-    height_to_windows_idx: [usize; MAX_WIN_NUM],
-    /// The highest window height.
+    /// Reference to the registered sheets.
+    pub sheets: Vec<Sheet>,
+    /// Map height to sheets index. Sheets with height==-1 is not mapped.
+    height_to_sheets_idx: [usize; MAX_WIN_NUM],
+    /// The highest sheet height.
     top: isize,
-    /// Represents the height of the "owner" window of the pixel which is the highest window at the pixel.
+    /// Represents the height of the "owner" sheet of the pixel which is the highest sheet at the pixel.
     map: Vec<Vec<isize>>,
 }
 
-impl<'a> WindowControl<'a> {
+impl<'a> SheetControl<'a> {
     pub fn new(mode: &'a Graphics320x200x256) -> Self {
-        let mut windows = Vec::with_capacity(MAX_WIN_NUM);
+        let mut sheets = Vec::with_capacity(MAX_WIN_NUM);
         for _ in 0..MAX_WIN_NUM {
-            windows.push(Window::new((0, 0), (0, 0), (0, 0)));
+            sheets.push(Sheet::new((0, 0), (0, 0), (0, 0)));
         }
         Self {
             mode,
-            windows,
-            height_to_windows_idx: [0; MAX_WIN_NUM],
+            sheets,
+            height_to_sheets_idx: [0; MAX_WIN_NUM],
             top: -1,
             map: vec![vec![0; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize],
         }
     }
-    /// Register a new window with the given size.
+    /// Register a new sheet with the given size.
     pub fn allocate(&mut self, size: Point<isize>) -> Option<usize> {
         for i in 0..MAX_WIN_NUM {
-            if !self.windows[i].flag.contains(WinFlag::USE) {
-                let win = &mut self.windows[i];
+            if !self.sheets[i].flag.contains(WinFlag::USE) {
+                let win = &mut self.sheets[i];
                 win.flag = WinFlag::USE;
                 win.height = -1;
                 win.adjust(size);
@@ -120,24 +119,24 @@ impl<'a> WindowControl<'a> {
         return None;
     }
 
-    pub fn change_window_height(&mut self, idx_to_move: usize, new_height: i32) {
+    pub fn change_sheet_height(&mut self, idx_to_move: usize, new_height: i32) {
         let new_height = clip(new_height, -1, self.top as i32 + 1);
-        let old_height = self.windows[idx_to_move].height;
-        self.windows[idx_to_move].height = new_height;
+        let old_height = self.sheets[idx_to_move].height;
+        self.sheets[idx_to_move].height = new_height;
         if new_height < old_height {
             if new_height > -1 {
                 for h in (new_height + 1..=old_height).rev() {
                     let h_usize = h as usize;
-                    self.height_to_windows_idx[h_usize] = self.height_to_windows_idx[h_usize - 1];
-                    self.windows[self.height_to_windows_idx[h_usize]].height = h;
+                    self.height_to_sheets_idx[h_usize] = self.height_to_sheets_idx[h_usize - 1];
+                    self.sheets[self.height_to_sheets_idx[h_usize]].height = h;
                 }
-                self.height_to_windows_idx[new_height as usize] = idx_to_move;
+                self.height_to_sheets_idx[new_height as usize] = idx_to_move;
             } else {
-                // hide window
+                // hide sheet
                 for h in old_height..self.top as i32 {
                     let h_usize = h as usize;
-                    self.height_to_windows_idx[h_usize] = self.height_to_windows_idx[h_usize + 1];
-                    self.windows[self.height_to_windows_idx[h_usize]].height = h;
+                    self.height_to_sheets_idx[h_usize] = self.height_to_sheets_idx[h_usize + 1];
+                    self.sheets[self.height_to_sheets_idx[h_usize]].height = h;
                 }
                 self.top -= 1;
             }
@@ -145,29 +144,29 @@ impl<'a> WindowControl<'a> {
             if old_height >= 0 {
                 for h in old_height..new_height {
                     let h_usize = h as usize;
-                    self.height_to_windows_idx[h_usize] = self.height_to_windows_idx[h_usize + 1];
-                    self.windows[self.height_to_windows_idx[h_usize]].height = h;
+                    self.height_to_sheets_idx[h_usize] = self.height_to_sheets_idx[h_usize + 1];
+                    self.sheets[self.height_to_sheets_idx[h_usize]].height = h;
                 }
-                self.height_to_windows_idx[new_height as usize] = idx_to_move;
+                self.height_to_sheets_idx[new_height as usize] = idx_to_move;
             } else {
-                // unhide window
+                // unhide sheet
                 for h in (new_height..self.top as i32).rev() {
                     let h_usize = h as usize;
-                    self.height_to_windows_idx[h_usize + 1] = self.height_to_windows_idx[h_usize];
-                    self.windows[self.height_to_windows_idx[h_usize + 1]].height = h + 1;
+                    self.height_to_sheets_idx[h_usize + 1] = self.height_to_sheets_idx[h_usize];
+                    self.sheets[self.height_to_sheets_idx[h_usize + 1]].height = h + 1;
                 }
-                self.height_to_windows_idx[new_height as usize] = idx_to_move;
+                self.height_to_sheets_idx[new_height as usize] = idx_to_move;
                 self.top += 1;
             }
         }
-        // let window_area = self.windows[idx_to_move].area();
-        // self.refresh_screen(Some(window_area));
+        // let sheet_area = self.sheets[idx_to_move].area();
+        // self.refresh_screen(Some(sheet_area));
     }
 
-    /// Remove window from allocation.
-    pub fn free(&mut self, window_id: usize) {
-        if self.windows[window_id].height >= 0 {
-            self.change_window_height(window_id, -1);
+    /// Remove sheet from allocation.
+    pub fn free(&mut self, sheet_id: usize) {
+        if self.sheets[sheet_id].height >= 0 {
+            self.change_sheet_height(sheet_id, -1);
         }
         unimplemented!()
     }
@@ -177,20 +176,20 @@ impl<'a> WindowControl<'a> {
     pub fn refresh_screen(
         &mut self,
         refresh_area: Option<(Point<isize>, Point<isize>)>,
-        refreshed_window_height: Option<isize>,
+        refreshed_sheet_height: Option<isize>,
     ) {
         use core::cmp::{max, min};
 
-        let refreshed_window_height = refreshed_window_height.unwrap_or(0);
+        let refreshed_sheet_height = refreshed_sheet_height.unwrap_or(0);
 
-        // refresh with windows
-        for h in refreshed_window_height..=self.top {
-            let window = &self.windows[self.height_to_windows_idx[h as usize]];
-            let buf = &window.buf;
-            let buffer_topleft = window.top_left;
+        // refresh with sheets
+        for h in refreshed_sheet_height..=self.top {
+            let sheet = &self.sheets[self.height_to_sheets_idx[h as usize]];
+            let buf = &sheet.buf;
+            let buffer_topleft = sheet.top_left;
             let buffer_bottomright = (
-                window.top_left.0 + window.size.0,
-                window.top_left.1 + window.size.1,
+                sheet.top_left.0 + sheet.size.0,
+                sheet.top_left.1 + sheet.size.1,
             );
             let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
                 let area_topleft = refresh_area.0;
@@ -203,8 +202,8 @@ impl<'a> WindowControl<'a> {
                 )
             } else {
                 (
-                    buffer_topleft.0..buffer_topleft.0 + window.size.0,
-                    buffer_topleft.1..buffer_topleft.1 + window.size.1,
+                    buffer_topleft.0..buffer_topleft.0 + sheet.size.0,
+                    buffer_topleft.1..buffer_topleft.1 + sheet.size.1,
                 )
             };
             for y in yrange.clone() {
@@ -230,22 +229,22 @@ impl<'a> WindowControl<'a> {
     /// If refresh_area is not given, whole screen is refreshed.
     ///
     /// TODO: the logic is mostly the same with refresh_screen... we can simplify them somehow
-    pub fn refresh_window_map(
+    pub fn refresh_sheet_map(
         &mut self,
         refresh_area: Option<(Point<isize>, Point<isize>)>,
-        refreshed_window_height: Option<isize>,
+        refreshed_sheet_height: Option<isize>,
     ) {
         use core::cmp::{max, min};
 
-        let refreshed_window_height = refreshed_window_height.unwrap_or(0);
+        let refreshed_sheet_height = refreshed_sheet_height.unwrap_or(0);
 
-        for h in refreshed_window_height..=self.top {
-            let window = &self.windows[self.height_to_windows_idx[h as usize]];
-            let buf = &window.buf;
-            let buffer_topleft = window.top_left;
+        for h in refreshed_sheet_height..=self.top {
+            let sheet = &self.sheets[self.height_to_sheets_idx[h as usize]];
+            let buf = &sheet.buf;
+            let buffer_topleft = sheet.top_left;
             let buffer_bottomright = (
-                window.top_left.0 + window.size.0,
-                window.top_left.1 + window.size.1,
+                sheet.top_left.0 + sheet.size.0,
+                sheet.top_left.1 + sheet.size.1,
             );
             let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
                 let area_topleft = refresh_area.0;
@@ -258,8 +257,8 @@ impl<'a> WindowControl<'a> {
                 )
             } else {
                 (
-                    buffer_topleft.0..buffer_topleft.0 + window.size.0,
-                    buffer_topleft.1..buffer_topleft.1 + window.size.1,
+                    buffer_topleft.0..buffer_topleft.0 + sheet.size.0,
+                    buffer_topleft.1..buffer_topleft.1 + sheet.size.1,
                 )
             };
             for y in yrange.clone() {
@@ -278,7 +277,7 @@ impl<'a> WindowControl<'a> {
     }
 }
 
-pub struct Window {
+pub struct Sheet {
     top_left: Point<isize>,
     size: Point<isize>,
     pub column_position: Point<isize>,
@@ -290,7 +289,7 @@ pub struct Window {
     flag: WinFlag,
 }
 
-impl Window {
+impl Sheet {
     pub fn new(top_left: Point<isize>, size: Point<isize>, column_position: Point<isize>) -> Self {
         Self {
             foreground: Color::White,
@@ -304,18 +303,18 @@ impl Window {
             flag: WinFlag::empty(),
         }
     }
-    /// Returns position and size of the window
+    /// Returns position and size of the sheet
     pub fn position(&self) -> (Point<isize>, Point<isize>) {
         return (self.top_left, self.size);
     }
-    /// Returns area of the window in the screen.
+    /// Returns area of the sheet in the screen.
     pub fn area(&self) -> (Point<isize>, Point<isize>) {
         (
             self.top_left,
             (self.top_left.0 + self.size.0, self.top_left.1 + self.size.1),
         )
     }
-    /// Returns the current line area of the window.
+    /// Returns the current line area of the sheet.
     pub fn line_area(&self) -> (Point<isize>, Point<isize>) {
         (
             (self.top_left.0, self.column_position.1),
@@ -325,27 +324,27 @@ impl Window {
             ),
         )
     }
-    /// Adjust the size of the window.
+    /// Adjust the size of the sheet.
     /// You need to rewrite the buffer after this function.
     pub fn adjust(&mut self, new_size: Point<isize>) {
         self.size = new_size;
         self.buf = Self::create_buffer(new_size, self.background);
     }
-    /// Move window by the given movement.
+    /// Move sheet by the given movement.
     pub fn moveby(&mut self, movement: Point<isize>) {
         self.top_left.0 += movement.0;
         self.top_left.0 = clip(self.top_left.0, 0, SCREEN_WIDTH);
         self.top_left.1 += movement.1;
         self.top_left.1 = clip(self.top_left.1, 0, SCREEN_HEIGHT);
     }
-    /// Move window to the given movement.
+    /// Move sheet to the given movement.
     pub fn moveto(&mut self, coordinate: Point<isize>) {
         self.top_left.0 = coordinate.0;
         self.top_left.0 = clip(self.top_left.0, 0, SCREEN_WIDTH);
         self.top_left.1 = coordinate.1;
         self.top_left.1 = clip(self.top_left.1, 0, SCREEN_HEIGHT);
     }
-    /// Change foreground/background of the window.
+    /// Change foreground/background of the sheet.
     pub fn change_color(&mut self, foreground: Color, background: Color) {
         self.foreground = foreground;
         self.background = background;
@@ -396,7 +395,7 @@ impl Window {
             }
         }
     }
-    /// Set up this window as background.
+    /// Set up this sheet as background.
     /// Paint it with Cyan, draw menu bar, etc.
     pub fn make_background(&mut self) {
         let (xsize, ysize) = self.size;
@@ -424,9 +423,9 @@ impl Window {
         self.boxfill(White, ((xsize - 47, ysize - 3), (xsize - 4, ysize - 3)));
         self.boxfill(White, ((xsize - 3, ysize - 24), (xsize - 3, ysize - 3)));
     }
-    /// Set up this window as ordinary window.
+    /// Set up this sheet as ordinary sheet.
     /// Paint it with LightGrey, draw CLOSE_BUTTON, etc.
-    pub fn make_window(&mut self, title: &str) {
+    pub fn make_sheet(&mut self, title: &str) {
         const CLOSE_BUTTON_WIDTH: usize = 16;
         const CLOSE_BUTTON_HEIGHT: usize = 14;
         const CLOSE_BUTTON: [[u8; CLOSE_BUTTON_WIDTH]; CLOSE_BUTTON_HEIGHT] = [
@@ -482,7 +481,7 @@ const FONT_HEIGHT: isize = 16;
 type Font = [[u16; 16]; 256];
 const FONT_DATA: Font = include!("../build/font.in");
 
-impl fmt::Write for Window {
+impl fmt::Write for Sheet {
     fn write_str(&mut self, string: &str) -> Result<(), core::fmt::Error> {
         string.chars().for_each(|c| {
             if c == '\n' {
@@ -513,7 +512,7 @@ impl fmt::Write for Window {
 }
 
 pub fn draw_mouse(
-    // window: &mut Window,
+    // sheet: &mut Sheet,
     location: &Point<isize>,
     prev_location: &Point<isize>,
     bc: &Color,

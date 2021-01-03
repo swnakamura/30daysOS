@@ -214,28 +214,28 @@ pub fn hlt_loop() -> ! {
 pub fn kernel_loop() -> ! {
     use core::fmt::Write;
     use vga_graphic::colors256::Color;
-    use vga_graphic::WINDOW_CONTROL;
+    use vga_graphic::SHEET_CONTROL;
     use vga_graphic::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-    // initialize background and test_window
-    let (background_id, test_window_id) = {
-        let mut window_control = WINDOW_CONTROL.lock();
-        let background_id = window_control
+    // initialize background and test_sheet
+    let (background_id, test_sheet_id) = {
+        let mut sheet_control = SHEET_CONTROL.lock();
+        let background_id = sheet_control
             .allocate((SCREEN_WIDTH, SCREEN_HEIGHT))
             .unwrap();
-        window_control.windows[background_id].change_color(Color::White, Color::Cyan);
-        window_control.windows[background_id].make_background();
-        window_control.change_window_height(background_id, 0);
+        sheet_control.sheets[background_id].change_color(Color::White, Color::Cyan);
+        sheet_control.sheets[background_id].make_background();
+        sheet_control.change_sheet_height(background_id, 0);
 
-        let test_window_id = window_control.allocate((160, 68)).unwrap();
-        window_control.change_window_height(test_window_id, 1);
-        window_control.windows[test_window_id].make_window("counting up...");
-        window_control.windows[test_window_id].moveto((30, 30));
+        let test_sheet_id = sheet_control.allocate((160, 68)).unwrap();
+        sheet_control.change_sheet_height(test_sheet_id, 1);
+        sheet_control.sheets[test_sheet_id].make_sheet("counting up...");
+        sheet_control.sheets[test_sheet_id].moveto((30, 30));
 
-        window_control.refresh_screen(None, None);
-        window_control.refresh_window_map(None, None);
+        sheet_control.refresh_screen(None, None);
+        sheet_control.refresh_sheet_map(None, None);
 
-        (background_id, test_window_id)
+        (background_id, test_sheet_id)
     };
 
     // 0.01s x 1000 = 10s
@@ -249,7 +249,7 @@ pub fn kernel_loop() -> ! {
         if let Ok(c) = keybuf_pop_result {
             use crate::alloc::string::ToString;
             write!(
-                WINDOW_CONTROL.lock().windows[background_id],
+                SHEET_CONTROL.lock().sheets[background_id],
                 "{}",
                 c.to_string().as_str()
             )
@@ -260,32 +260,29 @@ pub fn kernel_loop() -> ! {
             asm::sti();
         } else {
             {
-                let mut window_control = WINDOW_CONTROL.lock();
+                let mut sheet_control = SHEET_CONTROL.lock();
                 let initial_column_position =
-                    window_control.windows[test_window_id].initial_column_position;
-                window_control.windows[test_window_id].column_position = initial_column_position;
-                window_control.windows[test_window_id]
+                    sheet_control.sheets[test_sheet_id].initial_column_position;
+                sheet_control.sheets[test_sheet_id].column_position = initial_column_position;
+                sheet_control.sheets[test_sheet_id]
                     .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
                 write!(
-                    window_control.windows[test_window_id],
+                    sheet_control.sheets[test_sheet_id],
                     "Uptime:{:>08}",
                     timer::TIMER_CONTROL.lock().count
                 )
                 .unwrap();
-                let test_window_height = window_control.windows[test_window_id].height as isize;
-                let test_window_area = window_control.windows[test_window_id].area();
+                let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
+                let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
                 {
                     let mut tc_locked = timer::TIMER_CONTROL.lock();
                     if let Ok(_) = tc_locked.fifo.pop() {
-                        write!(
-                            window_control.windows[test_window_id],
-                            "10 secs have passed",
-                        )
-                        .unwrap();
+                        write!(sheet_control.sheets[test_sheet_id], "10 secs have passed",)
+                            .unwrap();
                     }
                 }
                 asm::sti();
-                window_control.refresh_screen(Some(test_window_area), Some(test_window_height));
+                sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
             }
         }
     }
