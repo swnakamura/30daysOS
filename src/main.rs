@@ -49,9 +49,13 @@ fn panic(info: &PanicInfo) -> ! {
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    lib::asm::cli();
     use vga::writers::{Text80x25, TextWriter};
     let textmode = Text80x25::new();
     textmode.set_mode();
+    for _ in 0..24 {
+        println!();
+    }
     println!("{}", info);
     haribote::hlt_loop();
 }
