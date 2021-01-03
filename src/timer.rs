@@ -1,4 +1,5 @@
 use crate::FIFO;
+use alloc::{vec, vec::Vec};
 use spin::Mutex;
 use x86_64::instructions::port;
 
@@ -6,22 +7,25 @@ const PIT_CTRL: u16 = 0x0043;
 const PIT_CNT0: u16 = 0x0040;
 
 const TIMER_FIFO_SIZE: usize = 32;
+const MAX_TIMER: usize = 100;
 
-#[derive(Debug)]
-pub struct TIMERCTL<T> {
+pub struct TIMERCTL<T: Copy> {
     pub count: i32,
-    pub timeout: i32,
-    pub fifo: FIFO<T>,
-    data: T,
+    pub timers: Vec<TIMER<T>>,
 }
 
 impl<T: Copy> TIMERCTL<T> {
-    /// pushes `self.data` to `self.fifo` in order to notify the timeout.
-    pub fn push_timeout_signal(&mut self) {
-        self.fifo.push(self.data).unwrap();
+    pub fn allocate(&mut self) -> Option<usize> {
+        for i in 0..MAX_TIMER {
+            if self.timers[i].flag == FlagState::Unused {
+                self.timers[i].flag = FlagState::Using;
+                return Some(i);
+            }
+        }
+        return None;
     }
-    pub fn set_timer(&mut self, timeout: i32) {
-        self.timeout = timeout;
+    pub fn deallocate(&mut self, id: usize) {
+        self.timers[id].flag = FlagState::Unused;
     }
 }
 
@@ -29,10 +33,44 @@ use lazy_static::lazy_static;
 lazy_static! {
     pub static ref TIMER_CONTROL: Mutex<TIMERCTL<u8>> = Mutex::new(TIMERCTL {
         count: 0,
-        timeout: 0,
-        fifo: FIFO::new(TIMER_FIFO_SIZE, 0),
-        data: 0,
+        timers: vec![TIMER::new(0); MAX_TIMER],
     });
+}
+
+#[derive(Clone)]
+pub struct TIMER<T: Copy> {
+    pub timeout: i32,
+    pub flag: FlagState,
+    pub fifo: FIFO<T>,
+    pub data: T,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum FlagState {
+    Unused,
+    Alloc,
+    Using,
+}
+
+impl<T: Copy> TIMER<T> {
+    pub fn new(data: T) -> Self {
+        Self {
+            timeout: 0,
+            flag: FlagState::Unused,
+            fifo: FIFO::new(TIMER_FIFO_SIZE, data),
+            data,
+        }
+    }
+    /// pushes `self.data` to `self.fifo` in order to notify the timeout.
+    pub fn push_timeout_signal(&mut self) {
+        self.fifo.push(self.data).unwrap();
+    }
+    pub fn set_time(&mut self, timeout: i32) {
+        self.timeout = timeout;
+    }
+    pub fn deallocate(&mut self) {
+        self.flag = FlagState::Unused;
+    }
 }
 
 pub fn init_pit() {

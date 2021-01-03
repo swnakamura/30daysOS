@@ -146,7 +146,7 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 use alloc::{vec, vec::Vec};
 
 /// uses static-sized vector as a buffer
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FIFO<T> {
     buf: Vec<T>,
     p: usize,
@@ -238,8 +238,13 @@ pub fn kernel_loop() -> ! {
         (background_id, test_sheet_id)
     };
 
-    // 0.01s x 1000 = 10s
-    timer::TIMER_CONTROL.lock().set_timer(1000);
+    let timer_10_sec_id = {
+        let mut locked_tc = timer::TIMER_CONTROL.lock();
+        // 0.01s x 1000 = 10s
+        let timer_id = locked_tc.allocate().unwrap();
+        locked_tc.timers[timer_id].set_time(50);
+        timer_id
+    };
 
     loop {
         asm::cli();
@@ -276,7 +281,7 @@ pub fn kernel_loop() -> ! {
                 let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
                 {
                     let mut tc_locked = timer::TIMER_CONTROL.lock();
-                    if let Ok(_) = tc_locked.fifo.pop() {
+                    if let Ok(_) = tc_locked.timers[timer_10_sec_id].fifo.pop() {
                         write!(sheet_control.sheets[test_sheet_id], "10 secs have passed",)
                             .unwrap();
                     }

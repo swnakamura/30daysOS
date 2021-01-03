@@ -56,10 +56,18 @@ mod handler {
         let rf = rflags::read();
         asm::cli();
         {
+            use crate::timer::FlagState;
             let mut tc_locked = TIMER_CONTROL.lock();
-            tc_locked.timeout -= 1;
-            if tc_locked.timeout == 0 {
-                tc_locked.push_timeout_signal();
+            tc_locked.count += 1;
+            for mut timer in &mut tc_locked.timers {
+                if timer.flag == FlagState::Using {
+                    if timer.timeout == 0 {
+                        timer.push_timeout_signal();
+                        timer.flag = FlagState::Alloc;
+                    } else {
+                        timer.timeout -= 1;
+                    }
+                }
             }
         }
         rflags::write(rf);
