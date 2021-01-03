@@ -14,15 +14,15 @@ pub struct TIMERCTL<T: Copy> {
 impl<T: Copy> TIMERCTL<T> {
     pub fn allocate(&mut self) -> Option<usize> {
         for i in 0..MAX_TIMER {
-            if self.timers[i].flag == FlagState::Unused {
-                self.timers[i].flag = FlagState::Using;
+            if self.timers[i].flag == TimerState::Unused {
+                self.timers[i].flag = TimerState::Using;
                 return Some(i);
             }
         }
         return None;
     }
     pub fn deallocate(&mut self, id: usize) {
-        self.timers[id].flag = FlagState::Unused;
+        self.timers[id].flag = TimerState::Unused;
     }
 }
 
@@ -37,13 +37,13 @@ lazy_static! {
 #[derive(Clone)]
 pub struct TIMER<T: Copy> {
     pub timeout: i32,
-    pub flag: FlagState,
+    pub flag: TimerState,
     pub fifo: FIFO<T>,
     pub data: T,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub enum FlagState {
+pub enum TimerState {
     Unused,
     Alloc,
     Using,
@@ -53,7 +53,7 @@ impl<T: Copy> TIMER<T> {
     pub fn new(data: T) -> Self {
         Self {
             timeout: 0,
-            flag: FlagState::Unused,
+            flag: TimerState::Unused,
             fifo: FIFO::new(TIMER_FIFO_SIZE, data),
             data,
         }
@@ -66,7 +66,7 @@ impl<T: Copy> TIMER<T> {
         self.timeout = timeout;
     }
     pub fn deallocate(&mut self) {
-        self.flag = FlagState::Unused;
+        self.flag = TimerState::Unused;
     }
 }
 

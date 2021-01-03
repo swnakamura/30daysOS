@@ -56,14 +56,14 @@ mod handler {
         let rf = rflags::read();
         asm::cli();
         {
-            use crate::timer::FlagState;
+            use crate::timer::TimerState;
             let mut tc_locked = TIMER_CONTROL.lock();
             tc_locked.count += 1;
             for mut timer in &mut tc_locked.timers {
-                if timer.flag == FlagState::Using {
+                if timer.flag == TimerState::Using {
                     if timer.timeout == 0 {
                         timer.push_timeout_signal();
-                        timer.flag = FlagState::Alloc;
+                        timer.flag = TimerState::Alloc;
                     } else {
                         timer.timeout -= 1;
                     }
