@@ -3,9 +3,6 @@ use alloc::{vec, vec::Vec};
 use spin::Mutex;
 use x86_64::instructions::port;
 
-const PIT_CTRL: u16 = 0x0043;
-const PIT_CNT0: u16 = 0x0040;
-
 const TIMER_FIFO_SIZE: usize = 32;
 const MAX_TIMER: usize = 100;
 
@@ -72,6 +69,9 @@ impl<T: Copy> TIMER<T> {
         self.flag = FlagState::Unused;
     }
 }
+
+const PIT_CTRL: u16 = 0x0043;
+const PIT_CNT0: u16 = 0x0040;
 
 pub fn init_pit() {
     let mut port_control = port::PortWriteOnly::new(PIT_CTRL);

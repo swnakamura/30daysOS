@@ -286,9 +286,9 @@ pub fn kernel_loop() -> ! {
                             .unwrap();
                     }
                 }
-                asm::sti();
                 sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
             }
+            asm::sti();
         }
     }
 }
