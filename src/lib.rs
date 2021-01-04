@@ -242,15 +242,18 @@ pub fn kernel_loop() -> ! {
         let mut locked_tc = timer::TIMER_CONTROL.lock();
         // 0.01s x 1000 = 10s
         let timer_id = locked_tc.allocate().unwrap();
-        locked_tc.set_time(timer_id, 500);
+        locked_tc.set_time(timer_id, 1000);
         timer_id
     };
 
     loop {
-        asm::cli();
+        // KEY_BUF,MOUSE_BUF,TIMER_CONTROLのいずれかをlockする間はcliをかけておく必要がある
         // 先に評価しておかないと、lockが開放されない
+        asm::cli();
         let keybuf_pop_result = KEY_BUF.lock().pop();
         let mousebuf_pop_result = MOUSE_BUF.lock().pop();
+        asm::sti();
+
         if let Ok(c) = keybuf_pop_result {
             use crate::alloc::string::ToString;
             write!(
@@ -259,10 +262,8 @@ pub fn kernel_loop() -> ! {
                 c.to_string().as_str()
             )
             .unwrap();
-            asm::sti();
         } else if let Ok(packet) = mousebuf_pop_result {
             crate::interrupts::MOUSE.lock().process_packet(packet);
-            asm::sti();
         } else {
             {
                 let mut sheet_control = SHEET_CONTROL.lock();
@@ -271,22 +272,27 @@ pub fn kernel_loop() -> ! {
                 sheet_control.sheets[test_sheet_id].column_position = initial_column_position;
                 sheet_control.sheets[test_sheet_id]
                     .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
+
+                asm::cli();
+                let timer_count = timer::TIMER_CONTROL.lock().count;
+                asm::sti();
+
                 write!(
                     sheet_control.sheets[test_sheet_id],
                     "Uptime:{:>08}",
-                    timer::TIMER_CONTROL.lock().count
+                    timer_count
                 )
                 .unwrap();
                 let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
                 let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
-                {
-                    let mut tc_locked = timer::TIMER_CONTROL.lock();
-                    if let Ok(_) = tc_locked.timers[timer_10_sec_id].pop() {
-                        write!(sheet_control.sheets[test_sheet_id], "\n10 secs have passed",)
-                            .unwrap();
-                    }
-                }
+
+                asm::cli();
+                let timers_fifo_pop = timer::TIMER_CONTROL.lock().timers[timer_10_sec_id].pop();
                 asm::sti();
+
+                if let Ok(_) = timers_fifo_pop {
+                    write!(sheet_control.sheets[test_sheet_id], "\n10 secs have passed",).unwrap();
+                }
                 sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
             }
         }
