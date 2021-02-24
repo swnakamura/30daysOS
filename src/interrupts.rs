@@ -51,8 +51,6 @@ mod handler {
         use crate::timer::TIMER_CONTROL;
         use x86_64::registers::rflags;
 
-        TIMER_CONTROL.lock().count += 1;
-
         let rf = rflags::read();
         asm::cli();
         {

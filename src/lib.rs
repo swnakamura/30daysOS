@@ -227,7 +227,7 @@ pub fn kernel_loop() -> ! {
         sheet_control.sheets[background_id].make_background();
         sheet_control.change_sheet_height(background_id, 0);
 
-        let test_sheet_id = sheet_control.allocate((190, 68)).unwrap();
+        let test_sheet_id = sheet_control.allocate((190, 100)).unwrap();
         sheet_control.change_sheet_height(test_sheet_id, 1);
         sheet_control.sheets[test_sheet_id].make_sheet("counting up...");
         sheet_control.sheets[test_sheet_id].moveto((30, 30));
@@ -243,6 +243,20 @@ pub fn kernel_loop() -> ! {
         // 0.01s x 1000 = 10s
         let timer_id = locked_tc.allocate().unwrap();
         locked_tc.set_time(timer_id, 1000);
+        timer_id
+    };
+    let timer_3_sec_id = {
+        let mut locked_tc = timer::TIMER_CONTROL.lock();
+        // 0.01s x 300 = 3s
+        let timer_id = locked_tc.allocate().unwrap();
+        locked_tc.set_time(timer_id, 300);
+        timer_id
+    };
+    let timer_ticking_id = {
+        let mut locked_tc = timer::TIMER_CONTROL.lock();
+        // 0.01s x 100 = 1s
+        let timer_id = locked_tc.allocate().unwrap();
+        locked_tc.set_time(timer_id, 100);
         timer_id
     };
 
@@ -283,16 +297,46 @@ pub fn kernel_loop() -> ! {
                     timer_count
                 )
                 .unwrap();
-                let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
-                let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
 
                 asm::cli();
-                let timers_fifo_pop = timer::TIMER_CONTROL.lock().timers[timer_10_sec_id].pop();
+                let timer_10_fifo_pop = timer::TIMER_CONTROL.lock().timers[timer_10_sec_id].pop();
+                let timer_3_fifo_pop = timer::TIMER_CONTROL.lock().timers[timer_3_sec_id].pop();
+                let timer_ticking_fifo_pop =
+                    timer::TIMER_CONTROL.lock().timers[timer_ticking_id].pop();
                 asm::sti();
 
-                if let Ok(_) = timers_fifo_pop {
-                    write!(sheet_control.sheets[test_sheet_id], "\n10 secs have passed",).unwrap();
+                if let Ok(_) = timer_3_fifo_pop {
+                    write!(sheet_control.sheets[test_sheet_id], "\n3 secs have passed",).unwrap();
                 }
+                if let Ok(_) = timer_10_fifo_pop {
+                    write!(
+                        sheet_control.sheets[test_sheet_id],
+                        "\n\n10 secs have passed",
+                    )
+                    .unwrap();
+                }
+                if let Ok(x) = timer_ticking_fifo_pop {
+                    asm::cli();
+                    if x == 0 {
+                        timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 1;
+                    } else {
+                        timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 0;
+                    }
+                    timer::TIMER_CONTROL.lock().set_time(timer_ticking_id, 100);
+                    asm::sti();
+                    sheet_control.sheets[test_sheet_id].boxfill(
+                        Color::LightGrey,
+                        ((3, 23 + 16 * 3), (3 + 8 * 15, 23 + 16 * 4)),
+                    );
+                    if x == 0 {
+                        write!(sheet_control.sheets[test_sheet_id], "\n\n\nx",).unwrap();
+                    } else {
+                        write!(sheet_control.sheets[test_sheet_id], "\n\n\ny",).unwrap();
+                    }
+                }
+
+                let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
+                let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
                 sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
             }
         }

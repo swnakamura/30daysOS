@@ -28,6 +28,7 @@ impl<T: Copy> TIMERCTL<T> {
     pub fn set_time(&mut self, id: usize, wait_time: i32) {
         let timeout = self.count + wait_time;
         self.timers[id].timeout = timeout;
+        self.timers[id].flag = TimerState::Using;
         self.next = core::cmp::min(self.next, timeout);
     }
     pub fn refresh_nexts(&mut self) {
@@ -36,7 +37,7 @@ impl<T: Copy> TIMERCTL<T> {
             if timer.flag == TimerState::Using {
                 if self.count == timer.timeout {
                     timer.push_timeout_signal();
-                    timer.flag = TimerState::Alloc;
+                    timer.flag = TimerState::Allocated;
                 } else {
                     self.next = core::cmp::min(self.next, timer.timeout);
                 }
@@ -70,7 +71,7 @@ pub struct TIMER<T: Copy> {
 #[derive(Clone, PartialEq, Eq)]
 pub enum TimerState {
     Unused,
-    Alloc,
+    Allocated,
     Using,
 }
 
