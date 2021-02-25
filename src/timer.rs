@@ -6,18 +6,19 @@ use x86_64::instructions::port;
 const TIMER_FIFO_SIZE: usize = 32;
 const MAX_TIMER: usize = 100;
 
-pub struct TIMERCTL<T: Copy> {
+pub struct TIMERCTL {
     /// global count of this OS. increases every 0.01s
     pub count: u32,
     /// next timing of timeout
     pub next: u32,
-    pub timers: Vec<TIMER<T>>,
+    pub timers: Vec<TIMER>,
     /// The index of timers used (`TimerState::Using`) now.
     /// Sorted by `next` in ascending order.
     pub used_timers: Vec<usize>,
+    fifo: FIFO<u32>,
 }
 
-impl<T: Copy> TIMERCTL<T> {
+impl TIMERCTL {
     pub fn allocate(&mut self) -> Option<usize> {
         for i in 0..MAX_TIMER {
             if self.timers[i].flag == TimerState::Unused {
@@ -58,15 +59,14 @@ impl<T: Copy> TIMERCTL<T> {
         if self.count >= self.next {
             let mut num_of_timeouts = 0;
             // iterate for timers in use
-            for timer_id in self.used_timers.iter() {
-                let mut timer = &mut self.timers[*timer_id];
-                if timer.timeout > self.count {
+            for timer_id in self.used_timers.clone().iter() {
+                if self.timers[*timer_id].timeout > self.count {
                     break;
                 }
                 // timeout happened for this timer
                 num_of_timeouts += 1;
-                timer.push_timeout_signal();
-                timer.flag = TimerState::Allocated;
+                self.push_timeout_signal(*timer_id);
+                self.timers[*timer_id].flag = TimerState::Allocated;
             }
             // `num_of_timeouts` timers timed out
             self.used_timers = self.used_timers.split_off(num_of_timeouts);
@@ -77,24 +77,31 @@ impl<T: Copy> TIMERCTL<T> {
             }
         }
     }
+    pub fn push_timeout_signal(&mut self, id: usize) {
+        let data = self.timers[id].data;
+        self.fifo.push(data).unwrap();
+    }
+    pub fn pop(&mut self) -> Result<u32, ()> {
+        self.fifo.pop()
+    }
 }
 
 use lazy_static::lazy_static;
 lazy_static! {
-    pub static ref TIMER_CONTROL: Mutex<TIMERCTL<u8>> = Mutex::new(TIMERCTL {
+    pub static ref TIMER_CONTROL: Mutex<TIMERCTL> = Mutex::new(TIMERCTL {
         count: 0,
         next: core::u32::MAX,
         timers: vec![TIMER::new(0); MAX_TIMER],
         used_timers: vec![],
+        fifo: FIFO::new(TIMER_FIFO_SIZE, 0),
     });
 }
 
 #[derive(Clone)]
-pub struct TIMER<T: Copy> {
+pub struct TIMER {
     pub timeout: u32,
     pub flag: TimerState,
-    fifo: FIFO<T>,
-    pub data: T,
+    pub data: u32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -104,24 +111,13 @@ pub enum TimerState {
     Using,
 }
 
-impl<T: Copy> TIMER<T> {
-    pub fn new(data: T) -> Self {
+impl TIMER {
+    pub fn new(data: u32) -> Self {
         Self {
             timeout: 0,
             flag: TimerState::Unused,
-            fifo: FIFO::new(TIMER_FIFO_SIZE, data),
             data,
         }
-    }
-    /// pushes `self.data` to `self.fifo` in order to notify the timeout.
-    pub fn push_timeout_signal(&mut self) {
-        self.fifo.push(self.data).unwrap();
-    }
-    pub fn pop(&mut self) -> Result<T, ()> {
-        self.fifo.pop()
-    }
-    pub fn deallocate(&mut self) {
-        self.flag = TimerState::Unused;
     }
 }
 

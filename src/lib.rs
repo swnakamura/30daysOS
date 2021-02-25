@@ -238,11 +238,13 @@ pub fn kernel_loop() -> ! {
         (background_id, test_sheet_id)
     };
 
+    asm::cli();
     let timer_10_sec_id = {
         let mut locked_tc = timer::TIMER_CONTROL.lock();
         // 0.01s x 1000 = 10s
         let timer_id = locked_tc.allocate().unwrap();
         locked_tc.set_time(timer_id, 1000);
+        locked_tc.timers[timer_id].data = 10;
         timer_id
     };
     let timer_3_sec_id = {
@@ -250,6 +252,7 @@ pub fn kernel_loop() -> ! {
         // 0.01s x 300 = 3s
         let timer_id = locked_tc.allocate().unwrap();
         locked_tc.set_time(timer_id, 300);
+        locked_tc.timers[timer_id].data = 3;
         timer_id
     };
     let timer_ticking_id = {
@@ -257,8 +260,10 @@ pub fn kernel_loop() -> ! {
         // 0.01s x 100 = 1s
         let timer_id = locked_tc.allocate().unwrap();
         locked_tc.set_time(timer_id, 100);
+        locked_tc.timers[timer_id].data = 1;
         timer_id
     };
+    asm::sti();
 
     loop {
         // KEY_BUF,MOUSE_BUF,TIMER_CONTROLのいずれかをlockする間はcliをかけておく必要がある
@@ -299,39 +304,40 @@ pub fn kernel_loop() -> ! {
                 .unwrap();
 
                 asm::cli();
-                let timer_10_fifo_pop = timer::TIMER_CONTROL.lock().timers[timer_10_sec_id].pop();
-                let timer_3_fifo_pop = timer::TIMER_CONTROL.lock().timers[timer_3_sec_id].pop();
-                let timer_ticking_fifo_pop =
-                    timer::TIMER_CONTROL.lock().timers[timer_ticking_id].pop();
+                let timer_fifo_pop = timer::TIMER_CONTROL.lock().pop();
                 asm::sti();
 
-                if let Ok(_) = timer_3_fifo_pop {
-                    write!(sheet_control.sheets[test_sheet_id], "\n3 secs have passed",).unwrap();
-                }
-                if let Ok(_) = timer_10_fifo_pop {
-                    write!(
-                        sheet_control.sheets[test_sheet_id],
-                        "\n\n10 secs have passed",
-                    )
-                    .unwrap();
-                }
-                if let Ok(x) = timer_ticking_fifo_pop {
-                    asm::cli();
-                    if x == 0 {
-                        timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 1;
+                if let Ok(x) = timer_fifo_pop {
+                    let x = x as usize;
+                    if x == 10 {
+                        write!(
+                            sheet_control.sheets[test_sheet_id],
+                            "\n\n10 secs have passed",
+                        )
+                        .unwrap()
+                    } else if x == 3 {
+                        write!(sheet_control.sheets[test_sheet_id], "\n3 secs have passed",)
+                            .unwrap()
+                    } else if x == 1 || x == 0 {
+                        asm::cli();
+                        if x == 0 {
+                            timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 1;
+                        } else {
+                            timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 0;
+                        }
+                        timer::TIMER_CONTROL.lock().set_time(timer_ticking_id, 100);
+                        asm::sti();
+                        sheet_control.sheets[test_sheet_id].boxfill(
+                            Color::LightGrey,
+                            ((3, 23 + 16 * 3), (3 + 8 * 1, 23 + 16 * 4)),
+                        );
+                        if x == 0 {
+                            write!(sheet_control.sheets[test_sheet_id], "\n\n\nx",).unwrap();
+                        } else {
+                            write!(sheet_control.sheets[test_sheet_id], "\n\n\ny",).unwrap();
+                        }
                     } else {
-                        timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 0;
-                    }
-                    timer::TIMER_CONTROL.lock().set_time(timer_ticking_id, 100);
-                    asm::sti();
-                    sheet_control.sheets[test_sheet_id].boxfill(
-                        Color::LightGrey,
-                        ((3, 23 + 16 * 3), (3 + 8 * 15, 23 + 16 * 4)),
-                    );
-                    if x == 0 {
-                        write!(sheet_control.sheets[test_sheet_id], "\n\n\nx",).unwrap();
-                    } else {
-                        write!(sheet_control.sheets[test_sheet_id], "\n\n\ny",).unwrap();
+                        panic!("Unexpected value popped from timer fifo")
                     }
                 }
 
