@@ -239,29 +239,21 @@ pub fn kernel_loop() -> ! {
     };
 
     asm::cli();
-    let timer_10_sec_id = {
-        let mut locked_tc = timer::TIMER_CONTROL.lock();
-        // 0.01s x 1000 = 10s
-        let timer_id = locked_tc.allocate().unwrap();
-        locked_tc.set_time(timer_id, 1000);
-        locked_tc.timers[timer_id].data = 10;
-        timer_id
-    };
-    let timer_3_sec_id = {
-        let mut locked_tc = timer::TIMER_CONTROL.lock();
-        // 0.01s x 300 = 3s
-        let timer_id = locked_tc.allocate().unwrap();
-        locked_tc.set_time(timer_id, 300);
-        locked_tc.timers[timer_id].data = 3;
-        timer_id
-    };
     let timer_ticking_id = {
         let mut locked_tc = timer::TIMER_CONTROL.lock();
+        // 0.01s x 1000 = 10s
+        let timer_10_sec_id = locked_tc.allocate().unwrap();
+        locked_tc.set_time(timer_10_sec_id, 1000);
+        locked_tc.timers[timer_10_sec_id].data = 10;
+        // 0.01s x 300 = 3s
+        let timer_3_sec_id = locked_tc.allocate().unwrap();
+        locked_tc.set_time(timer_3_sec_id, 300);
+        locked_tc.timers[timer_3_sec_id].data = 3;
         // 0.01s x 100 = 1s
-        let timer_id = locked_tc.allocate().unwrap();
-        locked_tc.set_time(timer_id, 100);
-        locked_tc.timers[timer_id].data = 1;
-        timer_id
+        let timer_ticking_id = locked_tc.allocate().unwrap();
+        locked_tc.set_time(timer_ticking_id, 100);
+        locked_tc.timers[timer_ticking_id].data = 1;
+        timer_ticking_id
     };
     asm::sti();
 
