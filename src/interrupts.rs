@@ -56,7 +56,7 @@ mod handler {
         {
             let mut tc_locked = TIMER_CONTROL.lock();
             tc_locked.count += 1;
-            tc_locked.check_timers();
+            tc_locked.shift_timers();
         }
         rflags::write(rf);
 
