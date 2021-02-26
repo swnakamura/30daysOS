@@ -19,6 +19,17 @@ pub struct TIMERCTL {
     fifo: &'static Mutex<FIFO<u32>>,
 }
 
+use lazy_static::lazy_static;
+lazy_static! {
+    pub static ref TIMER_CONTROL: Mutex<TIMERCTL> = Mutex::new(TIMERCTL {
+        count: 0,
+        next: core::u32::MAX,
+        timers: vec![TIMER::new(0); MAX_TIMER],
+        used_timers: vec![],
+        fifo: &GLOBAL_FIFO_BUF,
+    });
+}
+
 impl TIMERCTL {
     pub fn allocate(&mut self) -> Option<usize> {
         for i in 0..MAX_TIMER {
@@ -91,17 +102,6 @@ impl TIMERCTL {
         rflags::write(rf);
         result
     }
-}
-
-use lazy_static::lazy_static;
-lazy_static! {
-    pub static ref TIMER_CONTROL: Mutex<TIMERCTL> = Mutex::new(TIMERCTL {
-        count: 0,
-        next: core::u32::MAX,
-        timers: vec![TIMER::new(0); MAX_TIMER],
-        used_timers: vec![],
-        fifo: &GLOBAL_FIFO_BUF,
-    });
 }
 
 #[derive(Clone)]
