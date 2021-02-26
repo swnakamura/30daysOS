@@ -86,12 +86,16 @@ mod handler {
 
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
             if let Some(key) = keyboard.process_keyevent(key_event) {
-                crate::KEY_BUF
+                use crate::fifo;
+                fifo::GLOBAL_FIFO_BUF
                     .lock()
-                    .push(match key {
-                        DecodedKey::Unicode(character) => character,
-                        DecodedKey::RawKey(_) => '?',
-                    })
+                    .push(
+                        match key {
+                            DecodedKey::Unicode(character) => character,
+                            DecodedKey::RawKey(_) => '?',
+                        } as u32
+                            + fifo::KEYBOARD_OFFSET,
+                    )
                     .unwrap();
             }
         }
@@ -106,10 +110,14 @@ mod handler {
     pub extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: &mut InterruptStackFrame) {
         use x86_64::instructions::port::PortReadOnly;
 
-        let mut port = PortReadOnly::new(0x60);
+        let mut port: PortReadOnly<u8> = PortReadOnly::new(0x60);
         let packet = unsafe { port.read() };
         // we assume this is single-threaded as static variables are used here
-        crate::MOUSE_BUF.lock().push(packet).unwrap();
+        use crate::fifo;
+        fifo::GLOBAL_FIFO_BUF
+            .lock()
+            .push(packet as u32 + fifo::MOUSE_OFFSET)
+            .unwrap();
 
         // notify end of interrupt
         unsafe {

@@ -1,9 +1,10 @@
-use crate::FIFO;
+use crate::asm;
+use crate::fifo::{FIFO, GLOBAL_FIFO_BUF};
 use alloc::{vec, vec::Vec};
 use spin::Mutex;
 use x86_64::instructions::port;
+use x86_64::registers::rflags;
 
-const TIMER_FIFO_SIZE: usize = 32;
 const MAX_TIMER: usize = 100;
 
 pub struct TIMERCTL {
@@ -15,7 +16,7 @@ pub struct TIMERCTL {
     /// The index of timers used (`TimerState::Using`) now.
     /// Sorted by `next` in ascending order.
     pub used_timers: Vec<usize>,
-    fifo: FIFO<u32>,
+    fifo: &'static Mutex<FIFO<u32>>,
 }
 
 impl TIMERCTL {
@@ -32,8 +33,6 @@ impl TIMERCTL {
         self.timers[id].flag = TimerState::Unused;
     }
     pub fn set_time(&mut self, id: usize, wait_time: u32) {
-        use crate::asm;
-        use x86_64::registers::rflags;
         let timeout = self.count + wait_time;
         let rf = rflags::read();
         asm::cli();
@@ -79,10 +78,18 @@ impl TIMERCTL {
     }
     pub fn push_timeout_signal(&mut self, id: usize) {
         let data = self.timers[id].data;
-        self.fifo.push(data).unwrap();
+
+        let rf = rflags::read();
+        asm::cli();
+        self.fifo.lock().push(data).unwrap();
+        rflags::write(rf);
     }
     pub fn pop(&mut self) -> Result<u32, ()> {
-        self.fifo.pop()
+        let rf = rflags::read();
+        asm::cli();
+        let result = self.fifo.lock().pop();
+        rflags::write(rf);
+        result
     }
 }
 
@@ -93,7 +100,7 @@ lazy_static! {
         next: core::u32::MAX,
         timers: vec![TIMER::new(0); MAX_TIMER],
         used_timers: vec![],
-        fifo: FIFO::new(TIMER_FIFO_SIZE, 0),
+        fifo: &GLOBAL_FIFO_BUF,
     });
 }
 

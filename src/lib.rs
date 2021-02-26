@@ -25,6 +25,8 @@ use core::panic::PanicInfo;
 pub mod allocator;
 /// assembly-specific functions
 pub mod asm;
+/// Unified FIFO buffer
+pub mod fifo;
 /// font files
 pub mod font;
 /// global description table
@@ -143,67 +145,6 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     loop {}
 }
 
-use alloc::{vec, vec::Vec};
-
-/// uses static-sized vector as a buffer
-#[derive(Debug, Clone)]
-pub struct FIFO<T> {
-    buf: Vec<T>,
-    p: usize,
-    q: usize,
-    size: usize,
-    free: usize,
-}
-
-pub const KEY_BUF_SIZE: usize = 32;
-pub const MOUSE_BUF_SIZE: usize = 1024;
-
-use lazy_static::lazy_static;
-use spin::Mutex;
-lazy_static! {
-    pub static ref KEY_BUF: Mutex<FIFO<char>> = Mutex::new(FIFO::new(KEY_BUF_SIZE, '0'));
-    pub static ref MOUSE_BUF: Mutex<FIFO<u8>> = Mutex::new(FIFO::new(MOUSE_BUF_SIZE, 0));
-}
-
-impl<T: Clone> FIFO<T> {
-    pub fn new(buf_size: usize, default_value: T) -> Self {
-        Self {
-            buf: vec![default_value; buf_size],
-            p: 0,
-            q: 0,
-            free: buf_size,
-            size: buf_size,
-        }
-    }
-    pub fn push(&mut self, data: T) -> Result<(), ()> {
-        if self.free == 0 {
-            return Err(());
-        }
-        self.buf[self.p] = data;
-        self.p += 1;
-        if self.p == self.size {
-            self.p = 0;
-        }
-        self.free -= 1;
-        Ok(())
-    }
-    pub fn pop(&mut self) -> Result<T, ()> {
-        if self.free == self.size {
-            return Err(());
-        }
-        let data = self.buf[self.q].clone();
-        self.q += 1;
-        if self.q == self.size {
-            self.q = 0;
-        }
-        self.free += 1;
-        return Ok(data);
-    }
-    pub fn status(&self) -> usize {
-        return self.size - self.free;
-    }
-}
-
 /// loops `HLT` instruction
 pub fn hlt_loop() -> ! {
     loop {
@@ -258,85 +199,71 @@ pub fn kernel_loop() -> ! {
     asm::sti();
 
     loop {
-        // KEY_BUF,MOUSE_BUF,TIMER_CONTROLのいずれかをlockする間はcliをかけておく必要がある
-        // 先に評価しておかないと、lockが開放されない
         asm::cli();
-        let keybuf_pop_result = KEY_BUF.lock().pop();
-        let mousebuf_pop_result = MOUSE_BUF.lock().pop();
+        let fifo_buf_pop_result = fifo::GLOBAL_FIFO_BUF.lock().pop();
         asm::sti();
 
-        if let Ok(c) = keybuf_pop_result {
+        let mut sheet_control = SHEET_CONTROL.lock();
+        let initial_column_position = sheet_control.sheets[test_sheet_id].initial_column_position;
+        sheet_control.sheets[test_sheet_id].column_position = initial_column_position;
+        sheet_control.sheets[test_sheet_id]
+            .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
+
+        asm::cli();
+        let timer_count = timer::TIMER_CONTROL.lock().count;
+        asm::sti();
+
+        write!(
+            sheet_control.sheets[test_sheet_id],
+            "Uptime:{:>08}",
+            timer_count
+        )
+        .unwrap();
+
+        if let Ok(data) = fifo_buf_pop_result {
             use crate::alloc::string::ToString;
-            write!(
-                SHEET_CONTROL.lock().sheets[background_id],
-                "{}",
-                c.to_string().as_str()
-            )
-            .unwrap();
-        } else if let Ok(packet) = mousebuf_pop_result {
-            crate::interrupts::MOUSE.lock().process_packet(packet);
-        } else {
-            {
-                let mut sheet_control = SHEET_CONTROL.lock();
-                let initial_column_position =
-                    sheet_control.sheets[test_sheet_id].initial_column_position;
-                sheet_control.sheets[test_sheet_id].column_position = initial_column_position;
-                sheet_control.sheets[test_sheet_id]
-                    .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
-
-                asm::cli();
-                let timer_count = timer::TIMER_CONTROL.lock().count;
-                asm::sti();
-
-                write!(
-                    sheet_control.sheets[test_sheet_id],
-                    "Uptime:{:>08}",
-                    timer_count
+            match data {
+                256..=511 => write!(
+                    SHEET_CONTROL.lock().sheets[background_id],
+                    "{}",
+                    (data - 256).to_string().as_str()
                 )
-                .unwrap();
-
-                asm::cli();
-                let timer_fifo_pop = timer::TIMER_CONTROL.lock().pop();
-                asm::sti();
-
-                if let Ok(x) = timer_fifo_pop {
-                    let x = x as usize;
-                    if x == 10 {
-                        write!(
-                            sheet_control.sheets[test_sheet_id],
-                            "\n\n10 secs have passed",
-                        )
-                        .unwrap()
-                    } else if x == 3 {
-                        write!(sheet_control.sheets[test_sheet_id], "\n3 secs have passed",)
-                            .unwrap()
-                    } else if x == 1 || x == 0 {
-                        asm::cli();
-                        if x == 0 {
-                            timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 1;
-                        } else {
-                            timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 0;
-                        }
-                        timer::TIMER_CONTROL.lock().set_time(timer_ticking_id, 100);
-                        asm::sti();
-                        sheet_control.sheets[test_sheet_id].boxfill(
-                            Color::LightGrey,
-                            ((3, 23 + 16 * 3), (3 + 8 * 1, 23 + 16 * 4)),
-                        );
-                        if x == 0 {
-                            write!(sheet_control.sheets[test_sheet_id], "\n\n\nx",).unwrap();
-                        } else {
-                            write!(sheet_control.sheets[test_sheet_id], "\n\n\ny",).unwrap();
-                        }
+                .unwrap(),
+                512..=767 => crate::interrupts::MOUSE
+                    .lock()
+                    .process_packet((data - 512) as u8),
+                10 => write!(
+                    sheet_control.sheets[test_sheet_id],
+                    "\n\n10 secs have passed",
+                )
+                .unwrap(),
+                3 => {
+                    write!(sheet_control.sheets[test_sheet_id], "\n3 secs have passed",).unwrap();
+                }
+                1 | 0 => {
+                    asm::cli();
+                    if data == 0 {
+                        timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 1;
                     } else {
-                        panic!("Unexpected value popped from timer fifo")
+                        timer::TIMER_CONTROL.lock().timers[timer_ticking_id].data = 0;
+                    }
+                    timer::TIMER_CONTROL.lock().set_time(timer_ticking_id, 100);
+                    asm::sti();
+                    sheet_control.sheets[test_sheet_id].boxfill(
+                        Color::LightGrey,
+                        ((3, 23 + 16 * 3), (3 + 8 * 1, 23 + 16 * 4)),
+                    );
+                    if data == 0 {
+                        write!(sheet_control.sheets[test_sheet_id], "\n\n\nx",).unwrap();
+                    } else {
+                        write!(sheet_control.sheets[test_sheet_id], "\n\n\ny",).unwrap();
                     }
                 }
-
-                let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
-                let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
-                sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
+                _ => panic!("Unexpected value popped from timer fifo"),
             }
         }
+        let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
+        let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
+        sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
     }
 }
