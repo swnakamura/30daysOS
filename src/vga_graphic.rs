@@ -87,7 +87,8 @@ pub struct SheetControl<'a> {
     height_to_sheets_idx: [usize; MAX_WIN_NUM],
     /// The highest sheet height.
     top: isize,
-    /// Represents the height of the "owner" sheet of the pixel which is the highest sheet at the pixel.
+    /// Represents the height of the "owner" sheet of the pixel which is the highest sheet at the
+    /// pixel.
     map: Vec<Vec<isize>>,
 }
 
@@ -263,7 +264,8 @@ impl<'a> SheetControl<'a> {
             };
             for y in yrange.clone() {
                 for x in xrange.clone() {
-                    // if buffer is not none at this pixel, then screen should be updated with the buffer
+                    // if buffer is not none at this pixel, then screen should be updated with the
+                    // buffer
                     if let Some(_) =
                         buf[(y - buffer_topleft.1) as usize][(x - buffer_topleft.0) as usize]
                     {
@@ -423,8 +425,7 @@ impl Sheet {
         self.boxfill(White, ((xsize - 47, ysize - 3), (xsize - 4, ysize - 3)));
         self.boxfill(White, ((xsize - 3, ysize - 24), (xsize - 3, ysize - 3)));
     }
-    /// Set up this sheet as ordinary sheet.
-    /// Paint it with LightGrey, draw CLOSE_BUTTON, etc.
+    /// Set up this sheet as an ordinary sheetby painting it with LightGrey, draw CLOSE_BUTTON, etc.
     pub fn make_sheet(&mut self, title: &str) {
         const CLOSE_BUTTON_WIDTH: usize = 16;
         const CLOSE_BUTTON_HEIGHT: usize = 14;
