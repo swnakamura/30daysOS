@@ -181,10 +181,8 @@ impl<'a> SheetControl<'a> {
     ) {
         use core::cmp::{max, min};
 
-        let refreshed_sheet_height = refreshed_sheet_height.unwrap_or(0);
-
         // refresh with sheets
-        for h in refreshed_sheet_height..=self.top {
+        for h in refreshed_sheet_height.unwrap_or(0)..=self.top {
             let sheet = &self.sheets[self.height_to_sheets_idx[h as usize]];
             let buf = &sheet.buf;
             let buffer_topleft = sheet.top_left;
@@ -193,6 +191,7 @@ impl<'a> SheetControl<'a> {
                 sheet.top_left.1 + sheet.size.1,
             );
             let (xrange, yrange) = if let Some(refresh_area) = refresh_area {
+                // refresh_areaが与えられているなら、bufferの範囲とrefresh_areaの範囲のintersectにする
                 let area_topleft = refresh_area.0;
                 let area_bottomright = refresh_area.1;
                 (
@@ -202,6 +201,7 @@ impl<'a> SheetControl<'a> {
                         ..min(buffer_bottomright.1, area_bottomright.1),
                 )
             } else {
+                // そうでないなら単純に全体
                 (
                     buffer_topleft.0..buffer_topleft.0 + sheet.size.0,
                     buffer_topleft.1..buffer_topleft.1 + sheet.size.1,
@@ -223,6 +223,22 @@ impl<'a> SheetControl<'a> {
                     }
                 }
             }
+        }
+    }
+    /// Refreshes screen for the pixels according to the `areas_to_refresh`, which are the
+    /// accumulation of the characters written into buffer.
+    pub fn flush_printed_chars(&mut self, refreshed_sheet_height: Option<isize>) {
+        for h in refreshed_sheet_height.unwrap_or(0)..=self.top {
+            for area in self.sheets[self.height_to_sheets_idx[h as usize]]
+                .areas_to_refresh
+                .clone()
+                .iter()
+            {
+                // let tl = self.sheets[self.height_to_sheets_idx[h as usize]].top_left;
+                // let area = (area.0 + tl.0, area.1 + tl.1);
+                self.refresh_screen(Some(*area), Some(h));
+            }
+            self.sheets[self.height_to_sheets_idx[h as usize]].areas_to_refresh = Vec::new();
         }
     }
 
@@ -289,6 +305,7 @@ pub struct Sheet {
     pub background: Color,
     pub height: i32,
     flag: WinFlag,
+    pub areas_to_refresh: Vec<(Point<isize>, Point<isize>)>,
 }
 
 impl Sheet {
@@ -303,6 +320,7 @@ impl Sheet {
             initial_column_position: (3, 23),
             height: 0,
             flag: WinFlag::empty(),
+            areas_to_refresh: Vec::new(),
         }
     }
     /// Returns position and size of the sheet
@@ -497,6 +515,13 @@ impl fmt::Write for Sheet {
                     c,
                     self.foreground,
                 );
+                // self.areas_to_refresh.push((
+                //     self.column_position,
+                //     (
+                //         self.column_position.0 + FONT_WIDTH,
+                //         self.column_position.1 + FONT_HEIGHT,
+                //     ),
+                // ));
             }
             self.column_position.0 += FONT_WIDTH;
             if self.column_position.0 + FONT_WIDTH > self.size.0 {

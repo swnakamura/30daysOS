@@ -20,8 +20,6 @@ extern crate rlibc;
 use bootloader::entry_point;
 use core::panic::PanicInfo;
 
-// pub mod vga_graphic;
-
 pub mod allocator;
 /// assembly-specific functions
 pub mod asm;
@@ -173,8 +171,8 @@ pub fn kernel_loop() -> ! {
         sheet_control.sheets[test_sheet_id].make_sheet("counting up...");
         sheet_control.sheets[test_sheet_id].moveto((30, 30));
 
-        sheet_control.refresh_screen(None, None);
         sheet_control.refresh_sheet_map(None, None);
+        sheet_control.refresh_screen(None, None);
 
         (background_id, test_sheet_id)
     };
@@ -199,46 +197,56 @@ pub fn kernel_loop() -> ! {
     asm::sti();
 
     loop {
+        // FIFOバッファは割り込み時にロックされうるので、
+        // 2重ロックを防ぐためにcliしてからロックしないといけない
         asm::cli();
         let fifo_buf_pop_result = fifo::GLOBAL_FIFO_BUF.lock().pop();
         asm::sti();
 
-        let mut sheet_control = SHEET_CONTROL.lock();
-        let initial_column_position = sheet_control.sheets[test_sheet_id].initial_column_position;
-        sheet_control.sheets[test_sheet_id].column_position = initial_column_position;
-        sheet_control.sheets[test_sheet_id]
-            .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
+        {
+            let mut sheet_control = SHEET_CONTROL.lock();
+            let initial_column_position =
+                sheet_control.sheets[test_sheet_id].initial_column_position;
+            sheet_control.sheets[test_sheet_id].column_position = initial_column_position;
+            sheet_control.sheets[test_sheet_id]
+                .boxfill(Color::LightGrey, ((3, 23), (3 + 8 * 15, 23 + 16)));
 
-        asm::cli();
-        let timer_count = timer::TIMER_CONTROL.lock().count;
-        asm::sti();
+            asm::cli();
+            let timer_count = timer::TIMER_CONTROL.lock().count;
+            asm::sti();
 
-        write!(
-            sheet_control.sheets[test_sheet_id],
-            "Uptime:{:>08}",
-            timer_count
-        )
-        .unwrap();
+            write!(
+                sheet_control.sheets[test_sheet_id],
+                "Uptime:{:>08}",
+                timer_count
+            )
+            .unwrap();
+        }
 
         if let Ok(data) = fifo_buf_pop_result {
             use crate::alloc::string::ToString;
+            use core::char::from_u32;
             match data {
                 256..=511 => write!(
-                    SHEET_CONTROL.lock().sheets[background_id],
+                    SHEET_CONTROL.lock().sheets[test_sheet_id],
                     "{}",
-                    (data - 256).to_string().as_str()
+                    from_u32(data - 256).unwrap().to_string().as_str()
                 )
                 .unwrap(),
                 512..=767 => crate::interrupts::MOUSE
                     .lock()
                     .process_packet((data - 512) as u8),
                 10 => write!(
-                    sheet_control.sheets[test_sheet_id],
+                    SHEET_CONTROL.lock().sheets[test_sheet_id],
                     "\n\n10 secs have passed",
                 )
                 .unwrap(),
                 3 => {
-                    write!(sheet_control.sheets[test_sheet_id], "\n3 secs have passed",).unwrap();
+                    write!(
+                        SHEET_CONTROL.lock().sheets[test_sheet_id],
+                        "\n3 secs have passed",
+                    )
+                    .unwrap();
                 }
                 1 | 0 => {
                     asm::cli();
@@ -249,6 +257,7 @@ pub fn kernel_loop() -> ! {
                     }
                     timer::TIMER_CONTROL.lock().set_time(timer_ticking_id, 100);
                     asm::sti();
+                    let mut sheet_control = SHEET_CONTROL.lock();
                     sheet_control.sheets[test_sheet_id].boxfill(
                         Color::LightGrey,
                         ((3, 23 + 16 * 3), (3 + 8 * 1, 23 + 16 * 4)),
@@ -262,7 +271,9 @@ pub fn kernel_loop() -> ! {
                 _ => panic!("Unexpected value popped from timer fifo"),
             }
         }
+        let mut sheet_control = SHEET_CONTROL.lock();
         let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
+        // sheet_control.flush_printed_chars(Some(test_sheet_height));
         let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
         sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
     }
