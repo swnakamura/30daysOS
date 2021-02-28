@@ -234,9 +234,9 @@ impl<'a> SheetControl<'a> {
                 .clone()
                 .iter()
             {
-                // let tl = self.sheets[self.height_to_sheets_idx[h as usize]].top_left;
-                // let area = (area.0 + tl.0, area.1 + tl.1);
-                self.refresh_screen(Some(*area), Some(h));
+                let tl = self.sheets[self.height_to_sheets_idx[h as usize]].top_left;
+                let area = ((area.0.0 + tl.0, area.0.1 + tl.1),(area.1.0 + tl.0, area.1.1 + tl.1));
+                self.refresh_screen(Some(area), Some(h));
             }
             self.sheets[self.height_to_sheets_idx[h as usize]].areas_to_refresh = Vec::new();
         }
@@ -515,13 +515,13 @@ impl fmt::Write for Sheet {
                     c,
                     self.foreground,
                 );
-                // self.areas_to_refresh.push((
-                //     self.column_position,
-                //     (
-                //         self.column_position.0 + FONT_WIDTH,
-                //         self.column_position.1 + FONT_HEIGHT,
-                //     ),
-                // ));
+                self.areas_to_refresh.push((
+                    self.column_position,
+                    (
+                        self.column_position.0 + FONT_WIDTH,
+                        self.column_position.1 + FONT_HEIGHT,
+                    ),
+                ));
             }
             self.column_position.0 += FONT_WIDTH;
             if self.column_position.0 + FONT_WIDTH > self.size.0 {

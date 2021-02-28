@@ -273,8 +273,6 @@ pub fn kernel_loop() -> ! {
         }
         let mut sheet_control = SHEET_CONTROL.lock();
         let test_sheet_height = sheet_control.sheets[test_sheet_id].height as isize;
-        // sheet_control.flush_printed_chars(Some(test_sheet_height));
-        let test_sheet_area = sheet_control.sheets[test_sheet_id].area();
-        sheet_control.refresh_screen(Some(test_sheet_area), Some(test_sheet_height));
+        sheet_control.flush_printed_chars(Some(test_sheet_height));
     }
 }
